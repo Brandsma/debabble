@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .models import Pack, RuleSet, Severity
+from .models import RuleSet, Severity
 
 TITLE = "Writing rules: no AI-speak"
 
@@ -25,7 +25,12 @@ length. End on the last real point rather than a summary. Repeat a noun instead
 of cycling through synonyms for it. Make only claims the work supports. Read
 what you wrote before you finish."""
 
-_MARKERS = {Severity.BAN: "Never", Severity.FLAG: "Avoid"}
+BAN_HEADING = "Never"
+FLAG_HEADING = "Use sparingly"
+FLAG_NOTE = (
+    "Each of these is fine once. They read as machine writing when they cluster, "
+    "so keep them rare and deliberate."
+)
 
 # A term list longer than this is summarised rather than printed in full, so a
 # single vocabulary rule cannot swamp the file.
@@ -60,8 +65,8 @@ def _format_terms(terms: tuple[str, ...], *, limit: int | None) -> str:
 
 
 def _render_rule(rule, *, style: str, term_limit: int | None) -> list[str]:
-    marker = _MARKERS.get(rule.severity, "Avoid")
-    lines = [f"- **{marker}:** {rule.instruction.strip()}"]
+    """One rule as a bullet: a short bold label, then what to do about it."""
+    lines = [f"- **{rule.display_title}.** {rule.instruction.strip()}"]
 
     if rule.terms:
         label = "Never use" if rule.severity is Severity.BAN else "Watch for"
@@ -77,14 +82,18 @@ def _render_rule(rule, *, style: str, term_limit: int | None) -> list[str]:
     return lines
 
 
-def _render_pack(pack: Pack, *, style: str, term_limit: int | None) -> str:
-    rules = [r for r in pack.active_rules if r.delivered_via("instructions")]
-    if not rules:
-        return ""
-    lines = [f"## {pack.title}", ""]
-    for rule in rules:
-        lines.extend(_render_rule(rule, style=style, term_limit=term_limit))
-    return "\n".join(lines)
+def _instruction_rules(
+    ruleset: RuleSet, severity: Severity, skip_packs: frozenset[str]
+) -> list:
+    """Rules of one severity that are delivered as instructions, in pack order."""
+    out = []
+    for pack in ruleset.packs:
+        if pack.id in skip_packs:
+            continue
+        for rule in pack.active_rules:
+            if rule.severity is severity and rule.delivered_via("instructions"):
+                out.append(rule)
+    return out
 
 
 def render_body(
@@ -101,12 +110,21 @@ def render_body(
     term_limit = None if style == "full" else _MAX_TERMS_COMPACT
 
     sections = [f"# {TITLE}", "", PREAMBLE.strip()]
-    for pack in ruleset.packs:
-        if pack.id in skip_packs:
-            continue
-        rendered = _render_pack(pack, style=effective_style, term_limit=term_limit)
-        if rendered:
-            sections.extend(["", rendered])
+
+    # Grouping by severity rather than by pack gives the reader one absolute
+    # list and one judgement list, which is the distinction that changes how a
+    # rule should be applied.
+    banned = _instruction_rules(ruleset, Severity.BAN, skip_packs)
+    if banned:
+        sections.extend(["", f"## {BAN_HEADING}", ""])
+        for rule in banned:
+            sections.extend(_render_rule(rule, style=effective_style, term_limit=term_limit))
+
+    flagged = _instruction_rules(ruleset, Severity.FLAG, skip_packs)
+    if flagged:
+        sections.extend(["", f"## {FLAG_HEADING}", "", FLAG_NOTE, ""])
+        for rule in flagged:
+            sections.extend(_render_rule(rule, style=effective_style, term_limit=term_limit))
 
     return "\n".join(sections).rstrip() + "\n"
 
