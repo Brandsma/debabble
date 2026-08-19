@@ -1,0 +1,180 @@
+[pack]
+id = "docs-readme"
+title = "READMEs and docs"
+description = "README and technical-documentation tells: emoji headings, marketing superlatives, unmeasured statistics, and ceremony a small project cannot carry."
+version = "2026.08"
+priority = 60
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://arxiv.org/abs/2406.07016",
+    "https://github.com/yetone/kill-ai-slop",
+    "https://www.netcraft.com/blog/excessive-emojis-as-an-ai-indicator",
+]
+
+# Register `docs` throughout: these are shapes a README takes, not words a
+# sentence uses. The judgment rules here turn on proportion (how much
+# scaffolding a project of this size has earned), which no regex can measure,
+# so they ship on the instructions channel only.
+
+[[rules]]
+id = "emoji-headings"
+title = "No emoji in headings"
+severity = "ban"
+kind = "regex"
+registers = ["docs"]
+scope = "heading"
+pattern = '[ℹ☀-➿⬀-⯿\U0001F000-\U0001FAFF]'
+instruction = "Write section headings as plain text. No emoji prefix, no decorative symbol."
+why = "A pictogram on every H2 is the most recognisable shape a generated README has."
+wrong = "## 🚀 Getting Started"
+right = "## Getting started"
+
+[[rules]]
+id = "emoji-bullets"
+title = "No emoji feature bullets"
+severity = "ban"
+kind = "regex"
+registers = ["docs"]
+scope = "body"
+pattern = '(?m)^[ \t]*(?:[-*+]|\d+[.)])[ \t]+[*_]*[ \t]*[ℹ☀-➿⬀-⯿\U0001F000-\U0001FAFF]'
+instruction = "Begin a list item with the word, not a symbol. A feature list earns its place by saying what the feature does for the reader."
+why = "Rocket and sparkle bullets are borrowed warmth: they decorate a claim instead of supporting it."
+wrong = "- ⚡ Lightning-fast startup"
+right = "- Starts in 40 ms on a cold cache."
+
+[[rules]]
+id = "marketing-superlatives"
+title = "No unsupported superlatives"
+severity = "ban"
+kind = "phrase"
+registers = ["docs"]
+phrases = [
+    "blazingly fast",
+    "blazing fast",
+    "blazing-fast",
+    "lightning fast",
+    "lightning-fast",
+    "insanely fast",
+    "buttery smooth",
+    "rock solid",
+    "rock-solid",
+    "bulletproof",
+    "battle-tested",
+    "battle tested",
+    "production-ready",
+    "production ready",
+    "enterprise-grade",
+    "enterprise grade",
+    "military-grade",
+    "industry-leading",
+    "best-in-class",
+    "best in class",
+    "world-class",
+    "world class",
+    "next-generation",
+    "next generation",
+    "supercharge",
+    "turbocharge",
+    "unparalleled",
+    "powerful",
+]
+instruction = "Replace a speed or quality claim with the measurement that proves it, or cut the claim. Where there is no benchmark, describe what the code does instead."
+why = "A superlative costs nothing to write and carries no information; the number it stands in for does the whole job."
+wrong = "A blazingly fast, production-ready parser with a powerful query API."
+right = "Parses the 40 MB sample file in 1.2 s. The query API supports filters and joins."
+
+[[rules]]
+id = "badge-wall"
+title = "Few badges, each reporting something"
+severity = "flag"
+kind = "regex"
+registers = ["docs"]
+scope = "body"
+pattern = '!\[[^\]]*\]\(https?://(?:img\.shields\.io|badgen\.net|badge\.fury\.io|codecov\.io|app\.codecov\.io|forthebadge\.com)[^)]*\)'
+max = 3
+unit = "document"
+instruction = "Keep at most three badges, and only ones that report live state such as build status or the published version. A badge row is decoration, not evidence of use."
+wrong = "Eight shields.io badges stacked under the title, one of them a made-with-love badge."
+right = "A build-status badge and a PyPI version badge."
+
+[[rules]]
+id = "invented-stats"
+title = "No unmeasured statistics"
+severity = "flag"
+kind = "regex"
+registers = ["docs"]
+pattern = '(?i)\b(?:\d[\d,.]*\s*(?:k|m|b|million|billion)?\+\s*(?:developers|users|downloads|stars|teams|companies|customers|installs)|\d[\d,.]*\s*(?:k|m|million|billion)\s+(?:developers|users|downloads|stars|teams|companies|customers|installs)|\d{2}(?:\.\d+)?\s*%\s*uptime|100\s*%\s*(?:test\s+)?coverage|24/7\s+(?:support|monitoring)|trusted\s+by\s+(?:\d|thousands|millions))'
+instruction = "State a number only when you can say where it was measured. Delete adoption counts, uptime percentages, and coverage claims that nothing in the repository backs."
+why = "Rows such as 10k+ developers or 99.9% uptime are set dressing on a project with no telemetry, but a regex cannot tell a measured figure from an invented one, so this warns rather than breaks the build."
+wrong = "10k+ developers, 99.9% uptime, 24/7 support"
+right = "Running on 12 internal services since March 2026."
+
+[[rules]]
+id = "comprehensive-headings"
+title = "No self-advertising headings"
+severity = "ban"
+kind = "wordlist"
+registers = ["docs"]
+scope = "heading"
+words = [
+    "comprehensive",
+    "comprehensively",
+    "ultimate",
+    "definitive",
+    "exhaustive",
+    "all-in-one",
+]
+instruction = "Name the subject in a heading and stop. Let the section prove its own coverage."
+why = "Comprehensive is one of the ten marker words Kobak et al. measured as most enriched in LLM text, and a heading is where it surfaces first."
+wrong = "## Comprehensive guide to configuration"
+right = "## Configuration"
+
+[[rules]]
+id = "ceremony"
+title = "Scale structure to the project"
+severity = "flag"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Add a table of contents, a roadmap, an acknowledgements section, or an FAQ only once the project has grown enough to need one. For a single-file tool, the README is what it does, how to install it, and how to run it."
+why = "The tell is proportion rather than the sections themselves: full documentation scaffolding wrapped around a 100-line script."
+wrong = "A 90-line script whose README opens with a nine-entry table of contents, then Roadmap, Acknowledgements, and FAQ sections."
+right = "A 90-line script whose README is four paragraphs and an install command."
+
+[[rules]]
+id = "hollow-sections"
+title = "No text that restates its own label"
+severity = "flag"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Cut an Overview that paraphrases the title, and any option table whose description column repeats the type. Keep a row when it tells the reader something the signature does not."
+why = "Padding that restates its label is what a generator produces when a section was asked for and no content existed to put in it."
+wrong = "| timeout | int | The timeout value as an integer. |"
+right = "| timeout | int | Seconds to wait before the request is abandoned. Default 30. |"
+
+[[rules]]
+id = "boilerplate-openers"
+title = "No stock documentation openers"
+severity = "flag"
+kind = "phrase"
+registers = ["docs", "comments"]
+phrases = [
+    "this module provides",
+    "this package provides",
+    "this file contains functionality",
+    "this function is responsible for",
+    "this method is responsible for",
+    "this class is responsible for",
+    "is responsible for handling",
+    "provides functionality for",
+    "this document provides an overview",
+    "this section provides an overview",
+    "this guide will walk you through",
+    "in this guide, we will",
+    "the purpose of this module",
+    "the purpose of this function",
+]
+instruction = "Open a docstring or a doc page with a verb naming what the code does. Drop the frame that announces a description is about to arrive."
+wrong = "This function is responsible for validating the incoming payload."
+right = "Validates the incoming payload and raises ValueError when a field is missing."

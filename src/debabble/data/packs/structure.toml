@@ -1,0 +1,227 @@
+[pack]
+id = "structure"
+title = "Structure and rhetoric"
+description = "Shape-level tells: negative parallelism, reflexive triads, significance clauses, ritual summaries, bullet and bold overuse, and outline-shaped prose."
+version = "2026.08"
+priority = 80
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://arxiv.org/abs/2604.19139",
+    "https://github.com/yetone/kill-ai-slop",
+]
+
+# Structure is where false positives hurt most: the patterns here are ordinary
+# rhetoric at low density and machine cadence at high density. So almost
+# everything is `flag` with a max/unit, and anything a regex cannot judge
+# (rhythm, synonym cycling, triads, false ranges) is instruction-only rather
+# than a loose pattern that fires on honest prose.
+
+[[rules]]
+id = "negative-parallelism"
+title = "State the affirmative claim"
+severity = "flag"
+kind = "regex"
+registers = ["prose", "docs", "commits"]
+pattern = '(?i)\b(?:not only\b[^.!?\n]{1,80}\bbut\b[^.!?\n]{0,20}\balso\b|not just\b[^.!?\n]{1,60}\bbut\b|(?:it|this|that)(?:[\x27’]s| is) not\b[^.!?\n]{1,60},\s*(?:it|this|that)(?:[\x27’]s| is)\b)'
+max = 1
+unit = "document"
+instruction = "Say what a thing is, not what it is not. Keep the frames 'not just X, but Y' and 'it is not X, it is Y' to at most one per document, and only where a reader would genuinely have assumed X."
+why = "Negative parallelism is the most-cited construction tell across every published catalog; it manufactures a contrast nobody proposed."
+wrong = "This is not just a cache, but a full index of every exported symbol."
+right = "This is a full index of every exported symbol."
+
+[[rules]]
+id = "rule-of-three"
+title = "Use the real number of items"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+registers = ["prose", "docs", "commits"]
+instruction = "Use the number of items that actually exists: two reasons, or four, or one. Do not pad a list to three for cadence, and do not stack three adjectives where one measured fact works."
+why = "Triads of adjectives, examples, and bullets are a reflex of generated prose; the third item is usually invented to complete the rhythm."
+wrong = "The parser is fast, reliable, and maintainable."
+right = "The parser handles 40 MB/s on one core."
+
+[[rules]]
+id = "significance-clause"
+title = "End sentences on the fact"
+severity = "flag"
+kind = "regex"
+registers = ["prose", "docs", "commits"]
+scope = "body"
+pattern = '(?i),\s(?:highlighting|underscoring|underlining|emphasizing|emphasising|showcasing|reflecting|symbolizing|symbolising|cementing|solidifying|fostering|cultivating|reinforcing|ensuring|contributing to|paving the way)\s[^.!?\n]{0,100}[.!?]'
+max = 1
+unit = "section"
+instruction = "End the sentence on the fact. Cut trailing clauses that explain why the fact matters (', highlighting the importance of', ', underscoring', ', ensuring'), or promote the point to its own sentence with a concrete consequence."
+why = "Wikipedia calls these dangling participles superficial analysis: they add cadence and no information."
+wrong = "The retry budget is capped at three, ensuring the queue never stalls."
+right = "The retry budget is capped at three. A fourth failure drops the job to the dead-letter queue."
+
+[[rules]]
+id = "section-summaries"
+title = "No recap at the end of every section"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+instruction = "Stop at the last real point. Do not close every section with a recap, and do not add a summary paragraph to a piece a reader finishes in one sitting."
+why = "A mini-summary under each heading is the shape of generated long-form text; short documents never need one."
+wrong = "In short, the scheduler retries with backoff and gives up after five attempts."
+right = "The scheduler gives up after five attempts."
+
+[[rules]]
+id = "challenges-outlook"
+title = "No reassurance after a limitation"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs"]
+phrases = [
+    "despite these challenges",
+    "despite these limitations",
+    "despite its challenges",
+    "despite the challenges",
+    "the future looks promising",
+    "the future looks bright",
+    "the road ahead is promising",
+]
+instruction = "Do not answer a list of limitations with reassurance. Say what a limitation costs and where it is tracked, then stop."
+why = "The concession-then-optimism pivot is the signature closing move of AI-drafted articles, and it commits the writer to nothing."
+wrong = "Despite these challenges, the future looks promising for the plugin API."
+right = "The plugin API cannot reload modules. Reloading is tracked in issue 412."
+
+[[rules]]
+id = "bullet-overuse"
+title = "Prose in paragraphs, not bullets"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+registers = ["prose", "docs", "commits"]
+instruction = "Write arguments as paragraphs. Use a bullet list only for items a reader scans or counts, such as flags or ordered steps, and never nest bullets under bullets to carry reasoning."
+why = "Fragmenting connected reasoning into bullets hides the connections, which is why generated text reaches for it."
+wrong = "- **Startup:** fast. - **Memory:** low. - **Config:** one file."
+right = "It starts in 40 ms, holds about 12 MB, and reads a single config file."
+
+[[rules]]
+id = "bold-overuse"
+title = "One bold phrase per section"
+severity = "flag"
+kind = "regex"
+registers = ["docs"]
+scope = "body"
+pattern = '\*\*[^*\n]{1,80}\*\*'
+max = 1
+unit = "section"
+instruction = "Use bold at most once per section, for the one phrase a reader must not miss. Do not open every bullet with a bolded keyphrase or scatter bold through a paragraph."
+why = "When every phrase is emphasized, none is."
+wrong = "The **cache** is checked first, then the **index**, then the **origin**."
+right = "The cache is checked first, then the index, then the origin."
+
+[[rules]]
+id = "hedging-stacks"
+title = "Hedge once, with a reason"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+phrases = [
+    "could potentially",
+    "may potentially",
+    "might potentially",
+    "potentially could",
+    "could possibly",
+    "may possibly",
+    "might possibly",
+    "consult a professional",
+    "consult a qualified professional",
+    "results may vary",
+]
+instruction = "Hedge once, and give the reason for the hedge. Delete the second hedge in stacks like 'could potentially', and drop caveats nobody asked for unless the risk is specific."
+why = "Stacked modals carry no more uncertainty than one modal; they read as a model declining to commit."
+wrong = "This could potentially cause the worker to hang."
+right = "This hangs the worker when the socket never closes."
+
+[[rules]]
+id = "rhetorical-question"
+title = "No question you answer yourself"
+severity = "flag"
+kind = "regex"
+registers = ["prose", "docs"]
+pattern = '(?i)(?:\bthe (?:result|best part|catch|kicker|upshot|twist|bottom line)\?|\bso what does (?:this|that|it) mean\?|\bwhat does (?:this|that) mean\?|\bwhy does (?:this|that|it) matter\?|\bsound familiar\?)'
+max = 1
+unit = "document"
+instruction = "Do not ask a question you answer in the next breath. State the answer; if a question really organizes a section, make it the heading."
+why = "The self-answered question and the fragment pivot ('The result?') are blog-voice tics that carry no content."
+wrong = "So what does this mean? It means the lock is held for the whole request."
+right = "The lock is held for the whole request."
+
+[[rules]]
+id = "synonym-cycling"
+title = "Repeat the noun"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+registers = ["prose", "docs", "comments"]
+instruction = "One thing keeps one name for the whole document. If it is the parser, it stays the parser, never the engine, the component, or the solution."
+why = "Elegant variation forces the reader to re-identify the subject, and in technical writing it reads as a second, different thing."
+wrong = "The parser reads the header. The engine validates it, and the component emits tokens."
+right = "The parser reads the header, validates it, and emits tokens."
+
+[[rules]]
+id = "uniform-rhythm"
+title = "Vary sentence length"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+instruction = "Vary sentence and paragraph length deliberately. Let a one-sentence paragraph stand, and do not run every paragraph through the same claim, explanation, example, wrap-up shape."
+why = "Sentences that all land in the same length band are what readers hear as machine cadence, even when every word is right."
+
+[[rules]]
+id = "over-signposting"
+title = "No numbered signposts on unordered content"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs"]
+phrases = [
+    "firstly",
+    "secondly",
+    "thirdly",
+    "lastly",
+    "first and foremost",
+    "last but not least",
+]
+instruction = "Signpost only where order is load-bearing, and let headings carry the roadmap. Drop 'firstly', 'first and foremost', and 'last but not least'."
+wrong = "Firstly, install the CLI. Secondly, run init."
+right = "Install the CLI, then run init."
+
+[[rules]]
+id = "outline-shaped-prose"
+title = "Headings need prose under them"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+registers = ["docs"]
+instruction = "Give every heading at least a paragraph of its own before the next heading starts. Do not repeat the document title as the first heading, nest deeper than three levels, or write a heading for every two sentences."
+why = "A document whose headings contain only more headings is an outline that was never written up."
+wrong = "## Configuration then ### Overview then #### Fields, with no sentence between them."
+right = "## Configuration, two paragraphs explaining the file, then ### Fields."
+
+[[rules]]
+id = "heading-level-skip"
+title = "No skipped heading levels"
+severity = "flag"
+kind = "regex"
+registers = ["docs"]
+channels = ["linter"]
+pattern = '(?m)^(?:#(?!#)[^\n]*\n+###(?!#)|##(?!#)[^\n]*\n+####(?!#)|###(?!#)[^\n]*\n+#####(?!#)|####(?!#)[^\n]*\n+######)'
+instruction = "Follow an H2 with an H3, never an H4. Heading levels descend one at a time."
+why = "Level skips come from a model picking depth by vibe rather than by outline, and they break every table-of-contents generator."
+
+[[rules]]
+id = "false-ranges"
+title = "No ranges between unrelated extremes"
+severity = "flag"
+kind = "guidance"
+channels = ["instructions"]
+registers = ["prose", "docs"]
+instruction = "Do not pair two unrelated extremes as a range, as in 'everything from parsing to deployment'. Name the actual scope, or list the items. Skip aphorism formulas like 'X is the language of Y'."
+why = "A false range implies a continuum that does not exist, and it lets a sentence sound complete while claiming nothing."
+wrong = "The toolkit handles everything from YAML parsing to Kubernetes rollouts."
+right = "The toolkit parses YAML and renders Helm values. It does not deploy."

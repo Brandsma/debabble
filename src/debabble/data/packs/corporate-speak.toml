@@ -1,0 +1,123 @@
+[pack]
+id = "corporate-speak"
+title = "Corporate speak"
+description = "Business buzzwords and meeting idioms. Opt-in: off by default, because some teams write to stakeholders in this register on purpose."
+version = "2026.08"
+default = false
+priority = 40
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://en.wikipedia.org/wiki/Corporate_jargon",
+    "https://www.plainlanguage.gov/guidelines/words/",
+]
+
+# Opt-in pack, low priority: it is the first content dropped when a target's size
+# budget is tight, and it is absent unless the user names it in `packs`.
+#
+# Three of the strings here also appear in other packs. That is deliberate:
+# `vocabulary` treats "deep dive" and "world-class" as Tier-2 judgment calls and
+# bans "leverage" only as a verb, while a team that opts into this pack has
+# already decided the boardroom register is unwanted, so those strings are banned
+# outright here.
+
+[[rules]]
+id = "meeting-idioms"
+title = "No meeting-room idioms"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+phrases = [
+    "circle back",
+    "circling back",
+    "touch base",
+    "reach out",
+    "reaching out",
+    "move the needle",
+    "moves the needle",
+    "low-hanging fruit",
+    "low hanging fruit",
+    "think outside the box",
+    "thinking outside the box",
+    "going forward",
+    "boil the ocean",
+    "run it up the flagpole",
+    "put a pin in",
+]
+instruction = "Use the plain verb the idiom stands in for: follow up, ask, measure, the cheap fixes, from now on, defer. Meeting idioms survive deletion with no loss of meaning."
+suggest = ["follow up", "ask", "measure", "from now on", "defer"]
+why = "These are spoken filler from status meetings; in a written document they add length and hide the actual verb."
+wrong = "Let's circle back on retries once we knock out the low-hanging fruit."
+right = "Retries can wait. Fix the two timeouts first."
+
+[[rules]]
+id = "strategy-nouns"
+title = "No strategy-deck nouns"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+phrases = [
+    "paradigm shift",
+    "north star",
+    "actionable insights",
+    "actionable takeaways",
+    "core competency",
+    "core competencies",
+    "value-add",
+    "value add",
+    "win-win",
+    "synergize",
+    "synergizing",
+    "deep dive",
+    "deep dives",
+    "end-to-end solution",
+    "scalable solution",
+    "thought leadership",
+]
+instruction = "Name the concrete thing instead: the change, the metric, the finding, the work the team is good at. Write these as facts a reader can check."
+suggest = ["change", "metric", "finding", "review"]
+why = "Strategy-deck nouns describe an attitude toward the work rather than the work, so they say nothing a reader can verify or act on."
+wrong = "This release is a paradigm shift that delivers actionable insights against our north star."
+right = "This release adds p99 latency to the dashboard."
+
+[[rules]]
+id = "self-awarded-grades"
+title = "No self-awarded superlatives"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+phrases = [
+    "best-in-class",
+    "best in class",
+    "best-of-breed",
+    "world-class",
+    "world class",
+    "industry-leading",
+    "industry leading",
+    "industry best practices",
+    "market-leading",
+    "mission-critical",
+    "mission critical",
+]
+instruction = "Replace the grade with the measurement: the benchmark number, the SLA, what breaks when this fails. Give the reader the evidence and let them rank it."
+suggest = ["fast", "required", "measured"]
+why = "A grade the writer awards their own work is unfalsifiable, and every project claims it."
+wrong = "A world-class, mission-critical pipeline built on industry best practices."
+right = "The pipeline holds p99 under 200 ms and pages on any gap longer than five minutes."
+
+# Judgment rule, split off from the bans above. Every word here has a literal
+# technical sense that a regex cannot tell apart from the metaphor: a linter
+# reading "limited bandwidth" cannot know whether the subject is a network link
+# or a person's week. So this rule is instruction-only and flag-severity, and it
+# never fails CI. The narrow metaphorical phrasings that ARE mechanical live in
+# the ban rules above ("end-to-end solution", "industry best practices").
+[[rules]]
+id = "literal-senses-only"
+title = "Metaphors that collide with real terms"
+severity = "flag"
+kind = "guidance"
+registers = ["prose", "docs", "comments", "commits"]
+channels = ["instructions"]
+instruction = "Keep bandwidth, drill down, end-to-end, level set, double-click, flywheel, take it offline, and leverage as a noun for their literal senses: link capacity, an OLAP query, a full test path, a math level set, a mouse action, a machine part, shutting a node down, mechanical advantage. Applied to people or plans, write the plain word instead (time, examine, from start to finish, agree on definitions, look closer, the growth loop, discuss it later, an advantage); keep best practices only where you name the practice and its source, and let at the end of the day mean the nightly run."
+why = "Each of these has a genuine technical meaning, so a mechanical ban would fire on correct writing; the writer decides which sense is in play."
+wrong = "We lack the bandwidth to drill down on this, so at the end of the day it ships as is."
+right = "Nobody has time to investigate before the release, so it ships as is."

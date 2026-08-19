@@ -1,0 +1,190 @@
+[pack]
+id = "code-comments"
+title = "Code comments and identifiers"
+description = "Comments that restate the code, callout labels, docstring ceremony, emoji in console output, and identifiers named after their own improvement."
+version = "2026.08"
+priority = 75
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://www.pangram.com/blog/ai-code-detector",
+    "https://www.netcraft.com/blog/excessive-emojis-as-an-ai-indicator",
+    "https://justinmckelvey.com/blog/how-to-tell-if-code-was-written-by-ai",
+    "https://github.com/flamehaven01/ai-slop-detector",
+]
+
+# Registers here are "comments" (text pulled out of comment markers) and "code"
+# (source lines with comments and string literals masked). Nothing in this pack
+# runs against prose or docs, so every rule sets registers explicitly.
+#
+# Comment patterns keep the comment marker optional: they match both a raw source
+# line and the marker-stripped text the extractor hands the linter.
+
+[[rules]]
+id = "restating-comments"
+title = "Comment the why, not the line"
+severity = "ban"
+kind = "regex"
+registers = ["comments"]
+pattern = '(?i)^\s*(?:#|//|--|;|/\*|\*)?\s*(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))\s+(?:(?:the|a|an|all|our|new)\s+)?\w+(?:\s+\w+)?\s*[.:;]?\s*(?:\*/)?$'
+instruction = "Write a comment only where the code would surprise a reader, and make it say why. Never restate the line below it."
+why = "A comment that repeats the code adds a second thing to keep in sync and tells the reader nothing the line did not already say."
+wrong = "# Loop through the items"
+right = "# order matters: the API rejects out-of-sequence ids"
+
+[[rules]]
+id = "banner-comments"
+title = "No drawn section banners"
+severity = "flag"
+kind = "regex"
+registers = ["comments"]
+pattern = '^\s*(?:#|//|--|;|/\*|\*)?\s*[-=*_~+#/]{4,}'
+max = 1
+unit = "document"
+instruction = "Do not divide a file with drawn banner comments. A file that needs them to stay navigable should be split into modules."
+why = "Banners arrive uniformly in generated code, usually in files short enough to read end to end, where they replace structure rather than describe it."
+wrong = "# ========== Database Helpers =========="
+right = "from .db import connect, migrate"
+
+[[rules]]
+id = "callout-labels"
+title = "No Note or Warning labels"
+severity = "ban"
+kind = "regex"
+registers = ["comments"]
+pattern = '(?i)^\s*(?:#|//|--|;|/\*|\*)?\s*[^\w\s]{0,3}\s*(?:note|important|warning|caution|tip|remember|heads.?up|fyi|attention|disclaimer)\b\s*[:!]'
+instruction = "Do not label a comment Note, Important, or Warning. A comment is already the note, so state the fact plainly."
+why = "The label carries no information: every comment is by definition something the writer thought worth saying."
+wrong = "# Important: the lock must be held here."
+right = "# the caller holds the lock; releasing it here deadlocks the writer"
+
+[[rules]]
+id = "apologetic-comments"
+title = "No apologies for the code"
+severity = "ban"
+kind = "phrase"
+registers = ["comments"]
+phrases = [
+    "this is a simplified implementation",
+    "this is a simplified version",
+    "this is just an example",
+    "in a production environment, you would",
+    "in production, you would want",
+    "in a real application, you would",
+    "in a real-world scenario",
+    "for demonstration purposes",
+    "replace this with your actual",
+    "this is a placeholder implementation",
+]
+instruction = "Never ship a comment that apologizes for the code or describes what real code would do instead. Write it, or name the gap and link the issue."
+why = "A comment that explains why the code is not the code is a chat answer that got committed."
+wrong = "// This is a simplified implementation. In a production environment, you would verify the signature."
+right = "// signature checks are not implemented yet; see issue #412"
+
+# The two docstring rules are instruction-only. The linter masks string literals
+# before it checks the "code" register and never sees docstrings at all, and
+# "trivial private helper" needs AST context the regex engine does not have.
+# They shape generation; they are not enforced in v1.
+
+[[rules]]
+id = "docstring-ceremony"
+title = "No docstring template on trivial helpers"
+severity = "flag"
+kind = "guidance"
+registers = ["comments"]
+channels = ["instructions"]
+instruction = "Document what callers depend on. A four-line private helper whose name already says what it does needs no Args and Returns block."
+why = "The tell is not the docstring but the uniformity: the same template on every function regardless of how much the function does."
+wrong = 'def _clamp(lo, hi, v): """Clamp v. Args: lo (int): the low bound. hi (int): the high bound. Returns: int: the clamped value."""'
+right = 'def _clamp(lo, hi, v): return max(lo, min(hi, v))'
+
+[[rules]]
+id = "docstring-phrasing"
+title = "No responsible-for docstrings"
+severity = "flag"
+kind = "phrase"
+registers = ["comments"]
+channels = ["instructions"]
+phrases = [
+    "this function is responsible for",
+    "this method is responsible for",
+    "this class is responsible for",
+    "this module provides comprehensive",
+    "this function serves as",
+    "the purpose of this function is to",
+    "this helper is designed to",
+]
+instruction = "Start a docstring with the action, in the imperative: Parse the request header. Drop framings like this function is responsible for."
+wrong = "This function is responsible for parsing the request header and returning a dict."
+right = "Parse the request header into a dict."
+
+[[rules]]
+id = "emoji-in-output"
+title = "No emoji in code or console output"
+severity = "ban"
+kind = "regex"
+registers = ["code"]
+# Ranges are written as escapes so the pack file itself stays ASCII. The gap at
+# U+2713..U+2717 keeps the plain check and cross marks that human CLIs print.
+pattern = '[☀-⛿✀-✒✘-➿⬀-⯿️\U0001F000-\U0001FAFF]'
+instruction = "Keep emoji out of source and out of anything printed to a terminal or a log. A plain status word carries the same meaning on every encoding."
+why = "Emoji in console output is among the most reliable machine-detectable signs of generated code, and it garbles on terminals and log pipelines that assume ASCII."
+wrong = 'print("✅ Done! Server started successfully 🚀")'
+right = 'print("listening on port 8000")'
+
+[[rules]]
+id = "identifier-adjectives"
+title = "No self-praising identifiers"
+severity = "ban"
+kind = "regex"
+registers = ["code"]
+# Ban is limited to the three components the catalog calls hard-bannable. Version
+# and recency suffixes (_v2, _final, new_) are the catalog's "judgment on the
+# rest" and live in placeholder-names below, because api_v2 is an ordinary name.
+pattern = '\b(?:[Ee]nhanced|[Ii]mproved|[Cc]omprehensive|ENHANCED|IMPROVED|COMPREHENSIVE)_[A-Za-z0-9]|_(?:[Ee]nhanced|[Ii]mproved|[Cc]omprehensive|ENHANCED|IMPROVED|COMPREHENSIVE)\b|\b(?:[Ee]nhanced|[Ii]mproved|[Cc]omprehensive)[A-Z]'
+instruction = "Name code for what it does, not for how it compares to the version it replaces. Replace the old definition instead of adding enhanced_ or improved_ beside it."
+why = "The adjective is only meaningful next to the thing it improved on, so it goes stale the moment that thing is deleted, and it never says what changed."
+wrong = "def enhanced_parse_config(path):"
+right = "def parse_config(path):"
+
+[[rules]]
+id = "placeholder-names"
+title = "No numbered or leftover names"
+severity = "flag"
+kind = "regex"
+registers = ["code"]
+pattern = '\b(?:data|result|value|output|response|item|obj|helper|handler|func|thing|stuff)\d\b|\b\w+_(?:final|copy|updated|v\d)\b|\btemp\b'
+max = 1
+unit = "document"
+instruction = "Name a variable after what it holds: rows, parsed, retry_budget. A digit or a final suffix means two names are competing for one job."
+why = "The catalog treats these as judgment calls, not bans: one temp in a file is ordinary, several mean the naming gave up."
+wrong = "data2 = clean(data); result_final = merge(data2, temp)"
+right = "cleaned = clean(rows); merged = merge(cleaned, defaults)"
+
+# The last two rules are lint-only. Both describe habits worth catching in CI but
+# not worth the instruction-file bytes, since a model asked to finish its work
+# already knows what a stub is.
+
+[[rules]]
+id = "shipped-stubs"
+title = "No stubs shipped as finished work"
+severity = "flag"
+kind = "regex"
+registers = ["comments", "code"]
+channels = ["linter"]
+pattern = '\b(?:TODO|FIXME|XXX|HACK)\b|\braise NotImplementedError\b'
+instruction = "Finish the branch or remove it. Do not leave a TODO, a NotImplementedError, or a hardcoded return behind an interface you have described as working."
+wrong = "def verify_signature(token): return True  # TODO: verify for real"
+right = "def verify_signature(token): return hmac.compare_digest(expected, sign(token))"
+
+[[rules]]
+id = "swallowed-exceptions"
+title = "No silent exception handlers"
+severity = "flag"
+kind = "regex"
+registers = ["code"]
+channels = ["linter"]
+pattern = 'except\s*:|except\s+(?:Exception|BaseException)(?:\s+as\s+\w+)?\s*:|catch\s*(?:\([^)]*\))?\s*\{\s*\}'
+instruction = "Catch the exceptions you can act on and let the rest travel. When a handler must swallow one, log it and record why continuing is safe."
+why = "A blanket handler turns every later bug into silence, which is why generated code reaches for it whenever the failure modes are unclear."
+wrong = "except Exception: pass"
+right = 'except TimeoutError as e: log.warning("retrying after %s", e)'

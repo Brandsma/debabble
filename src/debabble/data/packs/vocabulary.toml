@@ -1,0 +1,253 @@
+[pack]
+id = "vocabulary"
+title = "Overused vocabulary"
+description = "Words models reach for far more often than people do, in two tiers: near-diagnostic hype vocabulary that is banned outright, and ordinary intensity words capped by density. Vocabulary tells drift by model era, so dated rules carry an era tag and this pack ages faster than the phrase and structure packs."
+version = "2026.08"
+priority = 90
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://arxiv.org/abs/2406.07016",
+    "https://originality.ai/blog/obvious-chatgpt-sayings",
+]
+
+# Ban discipline: a word only earns the ban tier if it has no ordinary literal use
+# in technical writing. That is why several words the research calls Tier 1 are
+# handled indirectly here:
+#   underscore  -> only "underscoring" is banned ("a leading underscore" is literal)
+#   harness     -> only "harnessing" is banned ("a test harness" is literal)
+#   elevate     -> only "elevates"/"elevating" ("elevated privileges" is literal)
+#   unlock      -> banned as a figure of speech only ("unlock a mutex" is literal)
+#   beacon      -> same ("a BLE beacon" is literal)
+#   realm       -> density tier only (Kerberos and OIDC realms are literal)
+#   key         -> not checked at all (API key, primary key, signing key)
+# The instruction text still names the plain words, so generation-time guidance
+# stays complete while the linter keeps a clean corpus at zero findings.
+
+[[rules]]
+id = "hype-verbs"
+title = "No promotional verbs"
+severity = "ban"
+kind = "wordlist"
+registers = ["prose", "docs", "comments", "commits"]
+words = [
+    "delve", "delves", "delved", "delving",
+    "embark", "embarks", "embarked", "embarking",
+    "foster", "fosters", "fostered", "fostering",
+    "garner", "garners", "garnered", "garnering",
+    "leverage", "leverages", "leveraged", "leveraging",
+    "showcase", "showcases", "showcased", "showcasing",
+    "unveil", "unveils", "unveiled", "unveiling",
+    "unleash", "unleashes", "unleashed", "unleashing",
+    "revolutionize", "revolutionizes", "revolutionized", "revolutionizing",
+    "revolutionise", "revolutionises", "revolutionised", "revolutionising",
+    "underscoring", "harnessing", "elevates", "elevating",
+    "boast", "boasts", "boasting",
+]
+suggest = ["use", "show", "start", "examine", "build"]
+instruction = "Write the plain verb: use rather than leverage or utilize, start rather than embark, show rather than showcase, explain rather than delve into. Never use underscore, harness, or elevate in their figurative senses."
+why = "Kobak et al. measured a 1,500% post-2022 rise in 'delves' and 1,000% in 'underscores' across 15M PubMed abstracts, the largest single-word shifts in the corpus."
+wrong = "This section delves into how the worker leverages the queue."
+right = "This section explains how the worker reads from the queue."
+
+[[rules]]
+id = "ornamental-flourish"
+title = "No decorative adjectives"
+severity = "ban"
+kind = "wordlist"
+era = "2023-2024"
+registers = ["prose", "docs", "comments", "commits"]
+words = [
+    "tapestry", "tapestries", "testament",
+    "intricate", "intricately", "intricacies",
+    "meticulous", "meticulously",
+    "pivotal", "myriad", "multifaceted", "paramount", "holistic",
+    "groundbreaking", "transformative",
+    "game-changer", "game-changing", "gamechanger",
+    "ever-evolving", "ever-changing", "everchanging",
+    "vibrant", "vibrancy", "nestled", "bustling",
+    "kaleidoscope", "indelible", "gossamer", "labyrinthine",
+    "interplay", "seamless", "seamlessly",
+    "synergy", "synergies", "synergistic",
+    "unparalleled", "unrivaled", "unrivalled",
+    "quintessential", "veritable",
+]
+instruction = "Delete decorative adjectives rather than swapping them for quieter ones. If a thing is unusual, say what makes it unusual; if it is not, it needs no adjective."
+why = "Wikipedia dates this cluster to 2023 and 2024 models; every word in it describes the writer's enthusiasm rather than the subject."
+wrong = "A meticulously designed, seamless tapestry of intricate services."
+right = "Twelve services, each owning one table."
+
+[[rules]]
+id = "metaphor-flourishes"
+title = "No stock metaphors"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+phrases = [
+    "unlock the potential",
+    "unlocks the potential",
+    "unlocking the potential",
+    "unlock the full potential",
+    "unlocks the full potential",
+    "unlocking the full potential",
+    "unlock the power",
+    "unlocks the power",
+    "unlocking the power",
+    "unlock the secrets",
+    "unlocks the secrets",
+    "unlock new possibilities",
+    "harness the power",
+    "harnesses the power",
+    "a beacon of",
+    "treasure trove",
+    "a symphony of",
+    "the holy grail of",
+    "a double-edged sword",
+]
+instruction = "State the mechanism instead of reaching for a figure of speech. Keep unlock, harness, and beacon for their literal senses, such as unlocking a mutex or a test harness."
+why = "These collocations survive translation into any subject, which is what makes them filler; the underlying words are ordinary technical terms, so only the fixed figures of speech are banned."
+wrong = "Caching unlocks the full potential of the ingest pipeline."
+right = "Caching cuts ingest latency from 400 ms to 60 ms."
+
+[[rules]]
+# The only mechanical substitution in this pack: 'utilize' means 'use' in every
+# context. Inflected forms sit in inflated-diction below, because one replacement
+# string cannot conjugate.
+id = "utilize"
+title = "Use 'use'"
+severity = "ban"
+kind = "wordlist"
+registers = ["prose", "docs", "comments", "commits"]
+words = ["utilize", "utilise"]
+suggest = ["use"]
+replacement = "use"
+fix = "safe"
+instruction = "Write 'use'. There is no sentence where 'utilize' carries meaning that 'use' does not."
+wrong = "Utilize the connection pool for batch jobs."
+right = "Use the connection pool for batch jobs."
+
+[[rules]]
+id = "inflated-diction"
+title = "No Latinate padding"
+severity = "ban"
+kind = "wordlist"
+registers = ["prose", "docs", "comments", "commits"]
+words = [
+    "utilizes", "utilized", "utilizing",
+    "utilises", "utilised", "utilising",
+    "commence", "commences", "commenced", "commencing",
+    "ascertain", "ascertains", "ascertained", "ascertaining",
+    "endeavor", "endeavors", "endeavour", "endeavours",
+    "aforementioned", "plethora",
+    "elucidate", "elucidates", "elucidating",
+]
+suggest = ["use", "start", "find out", "explain"]
+instruction = "Choose the older, shorter word: use, start, find out, explain. Keep 'utilization' when it names a measured ratio such as CPU utilization; everything else on this list has a plain equivalent in every context."
+why = "Formal-register synonyms make a sentence sound official without adding information, and models default to them far more often than human writers do."
+wrong = "Commence the migration once you ascertain the replica lag."
+right = "Start the migration once you know the replica lag."
+
+[[rules]]
+id = "intensity-cluster"
+title = "One intensity word per paragraph"
+severity = "flag"
+kind = "wordlist"
+registers = ["prose", "docs", "comments", "commits"]
+max = 1
+unit = "paragraph"
+words = [
+    "crucial", "crucially", "vital", "vitally", "essential",
+    "robust", "robustly", "comprehensive", "comprehensively",
+    "sophisticated", "innovative", "cutting-edge", "state-of-the-art",
+    "scalable", "compelling", "unprecedented", "nuanced",
+    "powerful", "valuable", "notable", "renowned", "profound",
+    "enduring", "daunting", "poised", "tailored", "insights", "excels",
+    "streamline", "streamlines", "streamlined", "streamlining",
+    "empower", "empowers", "empowered", "empowering",
+    "facilitate", "facilitates", "facilitated", "facilitating",
+    "bolster", "bolsters", "bolstered", "bolstering",
+    "cultivate", "cultivates", "cultivating",
+    "encompass", "encompasses", "encompassing",
+    "reimagine", "reimagining", "navigate", "navigating",
+    "landscape", "landscapes", "ecosystem", "ecosystems",
+    "journey", "journeys", "realm", "realms",
+]
+instruction = "Use at most one intensity word per paragraph, and prefer the fact that made you reach for it: 'crucial' becomes 'required by the scheduler', 'robust' becomes 'survives a node restart'."
+why = "Each of these is ordinary English on its own; Kobak's detection set is built from their co-occurrence, so two or three in one paragraph is the actual signal."
+wrong = "This robust, comprehensive solution delivers crucial insights across the data landscape."
+right = "The report lists every query slower than one second."
+
+[[rules]]
+id = "significance-verbs"
+title = "One significance verb per paragraph"
+severity = "flag"
+kind = "wordlist"
+era = "2025+"
+registers = ["prose", "docs", "comments", "commits"]
+max = 1
+unit = "paragraph"
+words = [
+    "enhance", "enhances", "enhanced", "enhancing",
+    "emphasize", "emphasizes", "emphasized", "emphasizing",
+    "emphasise", "emphasises", "emphasised", "emphasising",
+    "highlights", "highlighting",
+    "exemplifies", "epitomizes", "epitomises",
+]
+instruction = "Report the change, not its significance: 'enhances performance' becomes '18% fewer allocations'. Keep at most one of these verbs per paragraph."
+why = "Wikipedia's dated lists put enhance, emphasizing, and highlighting in the current model generation, replacing the delve and tapestry cluster of 2023."
+wrong = "The patch enhances throughput, highlighting the value of batching."
+right = "The patch raises throughput from 4k to 6k events per second."
+
+[[rules]]
+id = "filler-transitions"
+title = "No connective openers"
+severity = "flag"
+kind = "wordlist"
+registers = ["prose", "docs", "comments", "commits"]
+max = 1
+unit = "paragraph"
+words = [
+    "furthermore", "moreover", "additionally", "consequently",
+    "subsequently", "ultimately", "notably", "significantly",
+    "particularly", "importantly", "arguably", "essentially",
+    "indeed", "thereby", "whilst", "amidst", "amongst",
+]
+instruction = "Open paragraphs with the subject, not a connective. Keep at most one of these adverbs per paragraph, and never open two paragraphs in a row with one."
+why = "Half of Kobak's ten-word detection set is connectives; models use them to simulate argument structure where a sentence break would do the same work."
+wrong = "Furthermore, the cache warms at boot. Additionally, it refreshes hourly."
+right = "The cache warms at boot and refreshes hourly."
+
+[[rules]]
+id = "copula-dodges"
+title = "Prefer is and has"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+max = 1
+unit = "paragraph"
+phrases = [
+    "serves as",
+    "serve as",
+    "served as",
+    "serving as",
+    "stands as",
+    "stand as",
+    "standing as",
+    "functions as",
+    "function as",
+    "functioning as",
+    "operates as",
+    "operating as",
+    "acts as",
+    "act as",
+    "acting as",
+    "is representative of",
+    "represents a",
+    "represents the",
+    "features a",
+    "features an",
+    "offers a range of",
+]
+instruction = "Write 'is' and 'has'. Reserve 'serves as', 'acts as', and 'represents' for sentences that mean something other than plain identity, and use at most one per paragraph."
+why = "Wikipedia records a drop of more than 10% in plain 'is' and 'are' in AI text, replaced by these substitutes; each one is legitimate alone, and the repetition is the tell."
+wrong = "The gateway serves as the entry point and represents the only public surface."
+right = "The gateway is the entry point and the only public surface."

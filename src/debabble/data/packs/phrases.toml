@@ -1,0 +1,192 @@
+[pack]
+id = "phrases"
+title = "Formulaic phrases"
+description = "Multi-word formulas LLMs reach for: throat-clearing frames, scene-setting openers, summing-up closers, significance inflation, unsourced appeals to authority, and engagement bait."
+version = "2026.08"
+priority = 85
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://arxiv.org/abs/2510.15061",
+    "https://arxiv.org/abs/2406.07016",
+]
+
+# Severity here is deliberately mixed. Exact formulas whose deletion leaves the
+# sentence intact are banned; closers and appeals to authority are legitimate in
+# small doses, so they are density or judgment rules that must not break CI.
+
+[[rules]]
+id = "throat-clearing"
+title = "No throat-clearing frames"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs", "comments", "commits"]
+phrases = [
+    "it is important to note that",
+    "it's important to note that",
+    "it is worth noting that",
+    "it's worth noting that",
+    "it is important to remember that",
+    "it is worth mentioning that",
+    "it should be noted that",
+    "needless to say",
+    "to put it simply",
+    "in essence",
+    "at its core",
+    "generally speaking",
+    "let me be clear",
+    "i have to be honest",
+]
+instruction = "Delete the frame and state the fact. If a point needs emphasis, give the reason it matters rather than announcing that it matters."
+why = "The sentence survives the deletion word for word, which is what makes these frames pure filler."
+wrong = "It is important to note that the token expires after one hour."
+right = "The token expires after one hour."
+
+[[rules]]
+id = "formulaic-openers"
+title = "No formulaic openers"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs"]
+phrases = [
+    "in the realm of",
+    "imagine a world where",
+    "picture this",
+    "have you ever wondered",
+    "look no further",
+    "whether you're a beginner or an expert",
+    "whether you are a beginner or an expert",
+    "let's dive in",
+    "let's dive into",
+    "let's break this down",
+    "buckle up",
+    "welcome to the world of",
+]
+instruction = "Open on the subject. Cut rhetorical hooks and announcements that you are about to begin."
+wrong = "Have you ever wondered how the cache decides what to evict? Let's dive in."
+right = "The cache evicts the least recently used entry once it passes 512 MB."
+
+[[rules]]
+id = "scene-setting"
+title = "No era framing"
+severity = "ban"
+kind = "regex"
+registers = ["prose", "docs"]
+pattern = '(?i)\bin (?:today.s (?:[a-z-]+ ){1,2}(?:world|age|era|landscape|climate|market)|an era of\b|(?:the |a )?(?:ever|rapidly|constantly)[ -]?(?:evolving|changing|shifting) (?:world|landscape|field|realm|era|industry))'
+instruction = "Do not set the scene with the state of the world or the pace of the industry. Start at the specific thing you are writing about."
+why = "Era framing carries no information about the subject; it is a warm-up sentence the model writes before it starts."
+wrong = "In today's fast-paced development landscape, observability matters."
+right = "Without request tracing, a failed checkout takes about an hour to diagnose."
+
+[[rules]]
+id = "significance-inflation"
+title = "No borrowed significance"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs", "commits"]
+phrases = [
+    "stands as a testament to",
+    "serves as a testament to",
+    "is a testament to",
+    "serves as a reminder",
+    "plays a crucial role in",
+    "plays a pivotal role in",
+    "plays a vital role in",
+    "plays a key role in",
+    "plays a significant role in",
+    "underscores its importance",
+    "underscores the importance of",
+    "highlights its significance",
+    "left an indelible mark",
+    "rich tapestry",
+    "rich cultural tapestry",
+    "setting the stage for",
+    "marks a significant shift",
+    "represents a significant shift",
+    "a delicate balance",
+    "solidified its place",
+    "solidified its reputation",
+    "continues to captivate",
+]
+instruction = "State what the thing does and what it caused. Do not assert importance in place of a fact."
+why = "These formulas are grammar for significance with no content in them, so they read as praise the writer cannot support."
+wrong = "The scheduler plays a crucial role in the pipeline and stands as a testament to careful design."
+right = "The scheduler retries a failed job five times, then moves it to the dead-letter queue."
+
+[[rules]]
+id = "weasel-attribution"
+title = "Name the source or cut the claim"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs"]
+phrases = [
+    "experts argue",
+    "experts agree",
+    "experts say",
+    "studies show",
+    "studies have shown",
+    "research shows",
+    "research suggests",
+    "industry reports suggest",
+    "observers have cited",
+    "some critics argue",
+    "many believe",
+    "is widely regarded as",
+    "several sources",
+    "it is often said",
+]
+instruction = "Name the source or cut the claim. An appeal to unnamed experts or studies is fine only when the person, paper, or measurement follows it."
+why = "Unattributed authority is the model's way of sounding evidenced without having evidence; a named source makes the same sentence checkable."
+wrong = "Studies show that smaller services improve p99 latency."
+right = "Our load test on the checkout service cut p99 latency from 900ms to 240ms."
+
+[[rules]]
+id = "summary-closers"
+title = "At most one summing-up closer"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs", "commits"]
+max = 1
+unit = "document"
+phrases = [
+    "in conclusion",
+    "in summary",
+    "to summarize",
+    "to sum up",
+    "all in all",
+    "at the end of the day",
+    "the key takeaway is",
+    "the key takeaway here is",
+    "only time will tell",
+    "the future looks bright",
+    "the future looks promising",
+    "as the field continues to evolve",
+    "one thing is clear",
+]
+instruction = "End on the last concrete point. Use at most one summing-up or forward-looking closer per document, and none in a piece short enough to reread."
+why = "A closer is legitimate at the end of a long document; the tell is that every piece and every section gets one."
+wrong = "In conclusion, retries are now bounded. Only time will tell how this scales."
+right = "Retries stop after five attempts."
+
+[[rules]]
+id = "engagement-bait"
+title = "No engagement bait"
+severity = "ban"
+kind = "phrase"
+registers = ["prose", "docs"]
+era = "2025+"
+phrases = [
+    "here's the kicker",
+    "here is the kicker",
+    "let that sink in",
+    "read that again",
+    "no fluff",
+    "you're not imagining it",
+    "here's the part most people miss",
+    "and honestly? that's rare",
+    "curious what others think",
+    "shouting into the void",
+]
+instruction = "Trust the reader to notice what is interesting. Cut lines whose only job is to manufacture a reaction."
+why = "These are social-feed tics from current-generation models; they perform emphasis instead of adding anything."
+wrong = "The build went from 9 minutes to 40 seconds. Let that sink in."
+right = "The build went from 9 minutes to 40 seconds."

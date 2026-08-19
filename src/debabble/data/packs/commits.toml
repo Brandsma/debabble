@@ -1,0 +1,167 @@
+[pack]
+id = "commits"
+title = "Commit messages and PRs"
+description = "Commit subjects that narrate instead of instruct, bodies out of proportion to the diff, and PR descriptions that grade their own changes."
+version = "2026.08"
+priority = 65
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://asdlc.io/concepts/pr-slop/",
+    "https://docs.coderabbit.ai/pr-reviews/slop-detection",
+    "https://git-scm.com/docs/SubmittingPatches",
+]
+
+# Every rule here is register "commits": commit messages and pull request
+# bodies only. Prose and docs are covered by the other packs, and several of
+# these patterns (a Benefits: heading, a bulleted summary) are fine in a design
+# document and wrong in a commit.
+#
+# The subject-line rules are bans because git convention is unusually firm and
+# the patterns are anchored to line starts. The body rules are flags: the tell
+# is ceremony out of proportion to the diff, which is a judgment about size, not
+# a string.
+
+[[rules]]
+id = "imperative-subject"
+title = "Imperative mood, no commit narration"
+severity = "ban"
+kind = "regex"
+registers = ["commits"]
+pattern = '(?im)^\s*(?:this (?:commit|change|patch|pr|pull request)|these changes)\s+(?:also\s+)?(?:add|adds|introduce|introduces|update|updates|implement|implements|refactor|refactors|fix|fixes|improve|improves|enhance|enhances|change|changes|modify|modifies|remove|removes|delete|deletes|create|creates|make|makes|ensure|ensures|allow|allows|provide|provides|bump|bumps|move|moves|rename|renames)\b'
+instruction = "Write the subject in the imperative mood, as an instruction to the codebase: \"Fix null deref in parser\". Never open with \"This commit\", \"This change\", or \"This PR\" followed by what it does."
+why = "Git convention since the kernel is imperative mood; narrating the commit restates the metadata git already stores."
+wrong = "This commit fixes a null dereference when the parser hits an empty tag."
+right = "Fix null dereference on empty tags in the parser"
+
+[[rules]]
+id = "improvement-opener"
+title = "No enhanced-X-to-improve-Y openers"
+severity = "ban"
+kind = "regex"
+registers = ["commits"]
+pattern = '(?im)^\s*(?:enhance|improve|optimi[sz]e|streamline|revamp|refine|harden)(?:s|d)?\b.{0,80}?\b(?:to|for)\s+(?:improved?|enhanced?|ensure|ensuring|optimi[sz]ed?|maximi[sz]e)\b'
+instruction = "Name the edit, not the ambition behind it. Say what the code does now that it did not do before; a purpose clause belongs in the body only when the diff does not show it."
+why = "The enhance-to-improve shape carries no information: both halves are evaluative, so the reader still does not know what changed."
+wrong = "Enhanced the config loader to improve reliability"
+right = "Retry config reads once on ENOENT"
+
+[[rules]]
+id = "self-review"
+title = "No grading your own diff"
+severity = "ban"
+kind = "phrase"
+registers = ["commits"]
+phrases = [
+    "ensuring robust",
+    "ensures robust",
+    "improves maintainability",
+    "improving maintainability",
+    "improved maintainability",
+    "better maintainability",
+    "improves readability",
+    "improving readability",
+    "improves code quality",
+    "better code quality",
+    "clean and maintainable",
+    "cleaner and more maintainable",
+    "more robust and",
+    "significantly improves",
+    "greatly improves",
+    "dramatically improves",
+    "follows best practices",
+    "following best practices",
+    "industry best practices",
+    "production-ready",
+    "battle-tested",
+    "enterprise-grade",
+    "future-proof",
+]
+instruction = "State what changed and, if it is not obvious, why. Do not rate your own diff as robust, maintainable, clean, or production-ready; that judgment belongs to the reviewer."
+why = "Evaluative adjectives about one's own change are unfalsifiable and read as advocacy, which is why reviewers name them as the loudest PR tell."
+wrong = "Refactor the queue consumer, ensuring robust error handling and improved maintainability"
+right = "Refactor the queue consumer so failed messages reach the DLQ after three attempts"
+
+[[rules]]
+id = "no-emoji"
+title = "No emoji or gitmoji in commit messages"
+severity = "ban"
+kind = "regex"
+registers = ["commits"]
+pattern = '[⌀-⏿■-➿⬀-⯿️\U0001F000-\U0001FAFF]|:(?:sparkles|rocket|bug|fire|tada|zap|wrench|memo|recycle|lipstick|construction|white_check_mark|art|boom|pencil|rotating_light):'
+instruction = "Keep commit subjects and bodies plain text. Add gitmoji or emoji only when the repository's own history already uses them consistently, and never as decoration on a subject line."
+why = "Models apply gitmoji unprompted and uniformly, so an emoji subject in a repo whose history has none is a direct tell."
+wrong = "✨ feat: add per-tenant rate limiter"
+right = "feat: add per-tenant rate limiter"
+
+[[rules]]
+id = "section-labels"
+title = "Few labelled sections in a commit body"
+severity = "flag"
+kind = "phrase"
+registers = ["commits"]
+phrases = [
+    "key changes:",
+    "summary of changes:",
+    "overview of changes:",
+    "changes made:",
+    "what changed:",
+    "key improvements:",
+    "benefits:",
+    "impact:",
+    "technical details:",
+    "implementation details:",
+]
+max = 1
+unit = "document"
+instruction = "Write the body as plain sentences about why the change was needed. Add a labelled section only when the message is long enough that a reader needs to navigate it, and at most one."
+why = "Stacked labels (Key changes, Benefits, Impact) are the shape of a generated essay; a human writing about a small diff writes a sentence."
+wrong = "Key changes: fixed the loop bound. Benefits: correct pagination. Impact: none."
+right = "The last page dropped a row because the bound used <= instead of <."
+
+[[rules]]
+id = "body-scale"
+title = "Scale the message to the diff"
+severity = "flag"
+kind = "guidance"
+registers = ["commits"]
+channels = ["instructions"]
+instruction = "Match the length of the message to the size of the change. A one-line fix gets a subject and nothing else; write a body only for reasoning a reader cannot recover from the diff."
+why = "The message-to-diff ratio is the most reliable commit tell: forty lines of bullets for a twenty-line change."
+wrong = "Bump lodash to 4.17.21, then six bullets on dependency hygiene and security posture."
+right = "Bump lodash to 4.17.21 (CVE-2021-23337)"
+
+[[rules]]
+id = "pr-template-shell"
+title = "PR bodies need substance, not scaffolding"
+severity = "flag"
+kind = "guidance"
+registers = ["commits"]
+channels = ["instructions"]
+instruction = "Open a PR description with the reason the change exists and what the reviewer should look at hardest. Keep a template heading only where you have something real to put under it; delete the rest."
+why = "A body made entirely of template headings with two bullets under each is the default generated shape, and it tells a reviewer nothing the diff did not already show."
+wrong = "## Summary, three bullets restating the diff, then ## Test plan saying the suite passes."
+right = "The consumer deadlocked when the broker restarted mid-batch. The fix is the lock ordering in consumer.py; the rest is mechanical."
+
+# Shipped with severity = "off" on purpose. Whether AI attribution belongs in
+# git history is a team policy decision, not a writing defect, so debabble takes
+# no side. Teams that have decided against trailers turn this rule on.
+[[rules]]
+id = "attribution-trailer"
+title = "No tool attribution trailers"
+severity = "off"
+kind = "phrase"
+registers = ["commits"]
+phrases = [
+    "generated with claude code",
+    "co-authored-by: claude",
+    "co-authored-by: cursor",
+    "co-authored-by: github copilot",
+    "co-authored-by: devin",
+    "generated with cursor",
+    "generated by an ai",
+    "written with ai assistance",
+]
+instruction = "Do not append tool attribution trailers to commits or PR bodies unless the repository asks for them."
+why = "This is a policy choice rather than a style defect, so the rule ships off; enable it if your team has decided git history should not carry tool attribution."
+wrong = "Fix retry backoff. Generated with Claude Code."
+right = "Fix retry backoff"

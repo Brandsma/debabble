@@ -1,0 +1,140 @@
+[pack]
+id = "punctuation"
+title = "Punctuation and typography"
+description = "Typography tells: em-dash pivots, curly quotes pasted out of a chat window, emoji used as formatting, and a horizontal rule under every heading."
+version = "2026.08"
+priority = 70
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://www.netcraft.com/blog/excessive-emojis-as-an-ai-indicator",
+]
+
+# Typography splits cleanly into two groups. Characters that do not belong in a
+# source tree at all (curly quotes, emoji) are bans. Marks humans use correctly
+# every day (em dash, ellipsis, exclamation) are density rules: the count is the
+# tell, never the single occurrence.
+
+[[rules]]
+id = "em-dash-density"
+title = "One em dash per 500 words"
+severity = "flag"
+kind = "regex"
+registers = ["prose", "docs", "commits"]
+scope = "body"
+# Only the real em dash. A bare "--" is a command-line flag far more often than
+# it is punctuation, and matching it would flag every install guide.
+pattern = '—'
+max = 1
+unit = "words"
+per_words = 500
+instruction = "Use at most one em dash per 500 words, and only for a genuine interruption. A comma or a period carries most pauses better."
+why = "Style guides cap em dashes at roughly one per 500 to 1,000 words; models use them as an all-purpose pause, several to a paragraph."
+wrong = "The cache is warm — most reads never touch disk — so latency stays flat — until eviction runs."
+right = "The cache is warm, so most reads never touch disk. Latency stays flat until eviction runs."
+
+[[rules]]
+id = "em-dash-pivot"
+title = "No dashed reversal"
+severity = "ban"
+kind = "regex"
+registers = ["prose", "docs", "commits"]
+# \x27 and ’ are the straight and curly apostrophe; the em dash is written
+# literally because it is what the rule is about.
+pattern = '(?i)—\s*(?:it|that|this)(?:[\x27’]s| is) not [^—\n]{1,60}—\s*(?:it|that|this)(?:[\x27’]s| is)\b|—\s*(?:but|and) (?:that|this|it)(?:[\x27’]s| is) (?:(?:exactly|precisely) (?:why|what|the point)|the point\b)'
+instruction = "Never build a sentence around a dashed reversal: a dash into a denial, then a second dash into the correction. Make the claim once, in the affirmative."
+why = "The symmetric dash pivot is a rhetorical reflex with no informational content; the affirmative half is the only half that says anything."
+wrong = "The retry loop is slow — it's not a bug — it's backpressure."
+right = "The retry loop is slow because it applies backpressure."
+
+[[rules]]
+id = "curly-quotes"
+title = "Straight quotes only"
+severity = "ban"
+kind = "regex"
+registers = ["prose", "docs", "comments", "commits", "code"]
+# Deliberately not fix = "safe": a curly character inside a string literal is
+# content, and a blind swap can change a program's output or break its syntax.
+pattern = '[“”‘’]'
+instruction = "Type straight quotes and apostrophes. Curly quotes in source, comments, commit messages, or a plain-text file mean the text was pasted out of a chat window."
+why = "Editors produce straight quotes; the curly ones arrive with the paste, which makes them close to proof of provenance rather than a style opinion."
+wrong = 'const label = “ready”;'
+right = 'const label = "ready";'
+
+[[rules]]
+id = "emoji"
+title = "No emoji as formatting"
+severity = "ban"
+kind = "regex"
+registers = ["prose", "docs", "comments", "commits", "code"]
+scope = "any"
+# Emoji blocks, plus U+FE0F so that a plain typographic check mark passes and an
+# emoji-presentation one does not.
+pattern = '[\U0001F1E6-\U0001F1FF\U0001F300-\U0001FAFF\U00002600-\U000026FF\U00002700-\U00002712\U00002719-\U000027BF\U00002B00-\U00002BFF\U0000FE0F]'
+instruction = "Use no emoji in headings, bullets, prose, commit subjects, or console output. If a line needs weight, the words carry it."
+why = "Emoji used as formatting is borrowed warmth: it decorates the layout without adding information, and it is one of the loudest signals of generated text."
+wrong = "## 🚀 Getting started"
+right = "## Getting started"
+
+[[rules]]
+id = "thematic-breaks"
+title = "No rule between every section"
+severity = "flag"
+kind = "regex"
+registers = ["docs"]
+scope = "body"
+# Requires a blank line above, so YAML frontmatter delimiters and setext
+# headings are not counted as breaks.
+pattern = '(?m)^[ \t]*\r?\n[ \t]{0,3}(?:-{3,}|\*{3,}|_{3,})[ \t]*\r?$'
+max = 2
+unit = "document"
+instruction = "Let headings mark section boundaries. Keep horizontal rules to one or two in a whole document, where a real change of subject earns one."
+why = "A rule under every heading is template scaffolding rather than structure, and it doubles the visual noise the headings already handle."
+wrong = "## Install\n\n---\n\n## Configure\n\n---\n\n## Usage"
+right = "## Install\n\n## Configure\n\n## Usage"
+
+[[rules]]
+id = "title-case-headings"
+title = "Sentence case in headings"
+severity = "flag"
+kind = "regex"
+registers = ["docs"]
+scope = "heading"
+# Three or more capitalised words after the first. Acronyms are excluded by
+# requiring a lowercase letter, so "Configure the API and CLI" does not match.
+# Teams whose house style really is Title Case should disable this rule.
+pattern = '(?m)^#{1,6} +\S+(?:[^\n]*?\b[A-Z][a-z]+\b){3}'
+instruction = "Write headings in sentence case: capitalise the first word and proper nouns, nothing else."
+why = "Title Case on every heading is the default shape of generated documentation and breaks the sentence-case convention most technical docs follow."
+wrong = "## Getting Started With The Parser"
+right = "## Getting started with the parser"
+
+[[rules]]
+id = "ellipsis-suspense"
+title = "No ellipsis for suspense"
+severity = "flag"
+kind = "regex"
+registers = ["prose", "docs", "commits"]
+scope = "body"
+# Matches an ellipsis attached to the preceding word, which is the dramatic
+# pause. Spaced elision inside a quotation is left alone.
+pattern = '(?m)[A-Za-z,](?:…|\.\.\.)(?=\s|$)'
+max = 1
+unit = "document"
+instruction = "Keep the ellipsis for text you actually omitted. Do not use it to hold a beat before a reveal."
+wrong = "The migration ran clean. Then the replica lagged... and kept lagging."
+right = "The migration ran clean. The replica then lagged for six hours."
+
+[[rules]]
+id = "exclamation-marks"
+title = "No exclamation marks"
+severity = "flag"
+kind = "regex"
+registers = ["prose", "docs", "commits"]
+scope = "body"
+pattern = '(?m)\w!+(?=\s|$)'
+max = 1
+unit = "document"
+instruction = "State the fact and let the reader decide how to feel about it. Technical prose almost never needs an exclamation mark."
+why = "Enthusiasm punctuation is the written form of a tone one notch too excited, and it reads as marketing copy inside a manual."
+wrong = "Setup complete! Your server is now running!"
+right = "Setup is complete. The server listens on port 8080."

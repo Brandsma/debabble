@@ -1,0 +1,99 @@
+[pack]
+id = "minimal-docs"
+title = "Minimal documentation"
+description = "Decisions a linter cannot make: whether a document should exist at all, where it belongs, and how much structure it earns."
+version = "2026.08"
+priority = 55
+references = [
+    "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",
+    "https://github.com/danielrosehill/Declaude",
+]
+
+# Every rule here is guidance on the instruction channel. These judgments happen
+# before any text exists (should this file be written?) or depend on context a
+# regex cannot see (does this heading have substance under it?), so the linter
+# has nothing to check and the renderer carries the whole weight.
+
+[[rules]]
+id = "only-when-needed"
+title = "Write docs only when they are needed"
+severity = "flag"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Create a documentation file only when it was asked for, or when a reader cannot use or build the project without it. Do not add ARCHITECTURE.md, ROADMAP.md, GOALS.md, CONTRIBUTING boilerplate, or an INSTALLATION.md for a two-line setup on your own initiative."
+why = "Unrequested documents are stale the week after they are written, and nobody feels entitled to delete them."
+wrong = "Adds ARCHITECTURE.md and ROADMAP.md alongside a 300-line CLI that nobody asked to have documented."
+right = "Adds a paragraph on module layout to the README that already exists."
+
+[[rules]]
+id = "extend-existing"
+title = "Extend a document before creating one"
+severity = "flag"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Put new material in the document that already covers the topic. Start a new file only when the material fits nowhere in the existing set."
+why = "Splitting one subject across several thin files makes the reader search instead of read."
+wrong = "New file caching-notes.md containing two paragraphs about cache eviction."
+right = "Two paragraphs about cache eviction added to the design section of the README."
+
+[[rules]]
+id = "doc-filenames"
+title = "Lowercase kebab-case filenames"
+severity = "ban"
+kind = "guidance"
+registers = ["docs", "code"]
+channels = ["instructions"]
+instruction = "Name documentation files in lowercase kebab-case. Reserve capitals for README.md and the conventional all-caps files a repo already keeps, such as LICENSE and CHANGELOG.md; source files follow their language's naming convention."
+why = "Shouting filenames are a habit of generated repos; the shell, the tab-completer, and case-sensitive filesystems all prefer lowercase."
+wrong = "DEPLOYMENT_GUIDE.md"
+right = "deployment-guide.md"
+
+[[rules]]
+id = "structure-earns-substance"
+title = "A heading needs prose under it"
+severity = "flag"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Give a heading only to material that has developed prose beneath it, and let a short document stay one or two sections long. When a section would hold a single sentence, fold that sentence into the surrounding paragraph."
+why = "A page chopped into one-sentence sections looks organised and reads as an outline of a document rather than a document."
+wrong = "## Cache\n\nThe cache is in-memory.\n\n## Eviction\n\nEviction is LRU."
+right = "The cache is in-memory and evicts LRU after five minutes, so a restart costs one cold fetch per key."
+
+[[rules]]
+id = "tables-and-lists"
+title = "Tables for tabular data only"
+severity = "flag"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Use a table when the data has columns a reader will compare across, and a list when the items are genuinely enumerable. Everything else is paragraphs."
+why = "A two-column Aspect/Description table is prose in a costume: the reader scans a grid to recover one sentence."
+wrong = "| Aspect | Description |\n| Speed | The parser is fast. |\n| Safety | Input is validated. |"
+right = "The parser handles 40 MB/s on one core and rejects input that fails schema validation."
+
+[[rules]]
+id = "heading-depth"
+title = "Three heading levels at most"
+severity = "ban"
+kind = "guidance"
+registers = ["docs"]
+channels = ["instructions"]
+instruction = "Nest headings no deeper than three levels in an ordinary document. When a fourth level looks necessary, either the document wants splitting or the subsection wants to be a paragraph."
+why = "Deep outlines are the shape of a plan that was expanded mechanically, not of a page written for someone to read."
+wrong = "# Guide > ## Configuration > ### Paths > #### Windows paths"
+right = "# Guide > ## Configuration > ### Windows paths"
+
+[[rules]]
+id = "write-for-the-maintainer"
+title = "Say why, not only what"
+severity = "flag"
+kind = "guidance"
+registers = ["docs", "comments"]
+channels = ["instructions"]
+instruction = "Write for the person who maintains this next, and record why a choice was made. Facts they can read straight from the source do not need a document."
+why = "The reason behind a decision is the one thing that cannot be recovered by reading the code."
+wrong = "The retry limit is set to three."
+right = "Retries stop at three because the upstream gateway closes idle connections after the fourth attempt."
