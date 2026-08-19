@@ -82,9 +82,7 @@ def _render_rule(rule, *, style: str, term_limit: int | None) -> list[str]:
     return lines
 
 
-def _instruction_rules(
-    ruleset: RuleSet, severity: Severity, skip_packs: frozenset[str]
-) -> list:
+def _instruction_rules(ruleset: RuleSet, severity: Severity, skip_packs: frozenset[str]) -> list:
     """Rules of one severity that are delivered as instructions, in pack order."""
     out = []
     for pack in ruleset.packs:
@@ -158,9 +156,7 @@ def render(
     skip: set[str] = set()
     for pack in order:
         skip.add(pack.id)
-        text = render_body(
-            ruleset, style=style, include_examples=False, skip_packs=frozenset(skip)
-        )
+        text = render_body(ruleset, style=style, include_examples=False, skip_packs=frozenset(skip))
         if len(text) <= budget:
             return RenderResult(
                 text=text,

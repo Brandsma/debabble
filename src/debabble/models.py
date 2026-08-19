@@ -9,7 +9,7 @@ exactly the same vocabulary.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from enum import Enum
+from enum import StrEnum
 
 from .errors import PackError
 
@@ -31,7 +31,7 @@ UNITS = ("paragraph", "section", "document", "words")
 SCOPES = ("body", "heading", "any")
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """How hard a rule pushes.
 
     ``ban`` is absolute: never do this. ``flag`` is density guidance: fine
@@ -44,9 +44,6 @@ class Severity(str, Enum):
     BAN = "ban"
     FLAG = "flag"
     OFF = "off"
-
-    def __str__(self) -> str:
-        return self.value
 
     @property
     def is_active(self) -> bool:
@@ -74,7 +71,9 @@ class Severity(str, Enum):
             return cls(text)
         except ValueError:
             options = ", ".join(s.value for s in cls)
-            raise PackError(f"{where}: {value!r} is not a severity. Use one of: {options}.") from None
+            raise PackError(
+                f"{where}: {value!r} is not a severity. Use one of: {options}."
+            ) from None
 
 
 @dataclass(frozen=True, slots=True)

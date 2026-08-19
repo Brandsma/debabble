@@ -47,7 +47,7 @@ def build_rule(data: dict[str, Any], *, pack_id: str, where: str) -> Rule:
     """
     unknown = set(data) - _RULE_FIELDS
     if unknown:
-        name = sorted(unknown)[0]
+        name = min(unknown)
         raise PackError(f"{where}: unknown rule field {name!r}.{_did_you_mean(name, _RULE_FIELDS)}")
 
     raw_id = str(data.get("id", "")).strip()
@@ -57,18 +57,26 @@ def build_rule(data: dict[str, Any], *, pack_id: str, where: str) -> Rule:
 
     instruction = str(data.get("instruction", "")).strip()
     if not instruction:
-        raise PackError(f"{where}: rule {rule_id!r} needs an 'instruction' (what the writer should do).")
+        raise PackError(
+            f"{where}: rule {rule_id!r} needs an 'instruction' (what the writer should do)."
+        )
 
     kwargs: dict[str, Any] = {"id": rule_id, "instruction": instruction}
 
     if "severity" in data:
         kwargs["severity"] = Severity.parse(data["severity"], where=f"{where}: rule {rule_id!r}")
     if "kind" in data:
-        kwargs["kind"] = validate_choice(str(data["kind"]), KINDS, where=f"{where}: rule {rule_id!r} kind")
+        kwargs["kind"] = validate_choice(
+            str(data["kind"]), KINDS, where=f"{where}: rule {rule_id!r} kind"
+        )
     if "scope" in data:
-        kwargs["scope"] = validate_choice(str(data["scope"]), SCOPES, where=f"{where}: rule {rule_id!r} scope")
+        kwargs["scope"] = validate_choice(
+            str(data["scope"]), SCOPES, where=f"{where}: rule {rule_id!r} scope"
+        )
     if "unit" in data:
-        kwargs["unit"] = validate_choice(str(data["unit"]), UNITS, where=f"{where}: rule {rule_id!r} unit")
+        kwargs["unit"] = validate_choice(
+            str(data["unit"]), UNITS, where=f"{where}: rule {rule_id!r} unit"
+        )
     if "registers" in data:
         kwargs["registers"] = validate_choices(
             data["registers"], REGISTERS, where=f"{where}: rule {rule_id!r} registers"
@@ -84,7 +92,9 @@ def build_rule(data: dict[str, Any], *, pack_id: str, where: str) -> Rule:
             if isinstance(value, str):
                 value = [value]
             if not isinstance(value, (list, tuple)):
-                raise PackError(f"{where}: rule {rule_id!r} field {key!r} must be a list of strings.")
+                raise PackError(
+                    f"{where}: rule {rule_id!r} field {key!r} must be a list of strings."
+                )
             kwargs[key] = tuple(str(v) for v in value)
 
     for key in ("title", "pattern", "wrong", "right", "why", "fix", "replacement", "era"):
@@ -98,7 +108,9 @@ def build_rule(data: dict[str, Any], *, pack_id: str, where: str) -> Rule:
         kwargs["max"] = value
     if "per_words" in data:
         if not isinstance(data["per_words"], int) or data["per_words"] <= 0:
-            raise PackError(f"{where}: rule {rule_id!r} field 'per_words' must be a positive whole number.")
+            raise PackError(
+                f"{where}: rule {rule_id!r} field 'per_words' must be a positive whole number."
+            )
         kwargs["per_words"] = data["per_words"]
 
     rule = Rule(**kwargs)
@@ -115,7 +127,9 @@ def _check_rule_consistency(rule: Rule, *, where: str) -> None:
     if rule.kind == "regex" and not rule.pattern:
         raise PackError(f"{where}: rule {rule.id!r} is kind 'regex' but has no 'pattern'.")
     if rule.fix and rule.fix != "safe":
-        raise PackError(f"{where}: rule {rule.id!r} has fix={rule.fix!r}; the only supported value is 'safe'.")
+        raise PackError(
+            f"{where}: rule {rule.id!r} has fix={rule.fix!r}; the only supported value is 'safe'."
+        )
     if rule.fix == "safe" and not (rule.suggest or rule.replacement):
         raise PackError(
             f"{where}: rule {rule.id!r} is marked fix='safe' but offers no 'suggest' or 'replacement' text."
@@ -130,8 +144,10 @@ def build_pack(data: dict[str, Any], *, source: str) -> Pack:
 
     unknown = set(meta) - _PACK_KEYS
     if unknown:
-        name = sorted(unknown)[0]
-        raise PackError(f"{source}: unknown [pack] field {name!r}.{_did_you_mean(name, _PACK_KEYS)}")
+        name = min(unknown)
+        raise PackError(
+            f"{source}: unknown [pack] field {name!r}.{_did_you_mean(name, _PACK_KEYS)}"
+        )
 
     pack_id = str(meta.get("id", "")).strip()
     if not pack_id:

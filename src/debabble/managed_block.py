@@ -88,4 +88,14 @@ def remove(existing: str) -> str:
     return updated.replace("\n", newline) if newline != "\n" and updated else updated
 
 
-__all__ = ["BEGIN", "END", "NOTE", "contains", "detect_newline", "extract", "remove", "upsert", "wrap"]
+__all__ = [
+    "BEGIN",
+    "END",
+    "NOTE",
+    "contains",
+    "detect_newline",
+    "extract",
+    "remove",
+    "upsert",
+    "wrap",
+]

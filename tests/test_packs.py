@@ -29,7 +29,9 @@ def test_rule_ids_are_unique_across_packs():
     seen: dict[str, str] = {}
     for pack in load_builtin_packs():
         for rule in pack.rules:
-            assert rule.id not in seen, f"{rule.id} is defined in both {seen.get(rule.id)} and {pack.id}"
+            assert rule.id not in seen, (
+                f"{rule.id} is defined in both {seen.get(rule.id)} and {pack.id}"
+            )
             seen[rule.id] = pack.id
 
 

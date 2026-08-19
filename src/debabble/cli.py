@@ -15,11 +15,11 @@ from rich.table import Table
 from rich.text import Text
 
 from . import install, paths
-from .config import DEFAULT_STYLE, STYLES, Config, load_config, resolve_ruleset
+from .config import STYLES, Config, load_config, resolve_ruleset
 from .config import _rule_to_dict as rule_to_dict
 from .errors import ConfigError, DebabbleError
 from .models import Severity
-from .render import render, render_body, render_rewrite_command
+from .render import render_body, render_rewrite_command
 from .targets import CONTENT_REWRITE, all_targets, get_target
 
 console = Console()
@@ -150,9 +150,7 @@ def _print_changes(outcome: install.Outcome, project_root: Path | None) -> None:
         console.print("[dim]Nothing to do.[/dim]")
     for change in outcome.changes:
         colour, label = _ACTION_STYLES.get(change.action, ("white", change.action))
-        location = (
-            paths.display(change.path, relative_to=project_root) if str(change.path) else ""
-        )
+        location = paths.display(change.path, relative_to=project_root) if str(change.path) else ""
         line = Text()
         line.append(f"  {label:<14}", style=colour)
         line.append(location)
@@ -253,9 +251,7 @@ def remove(
 def status(*, is_global: GlobalFlag = False) -> None:
     """Show what is installed here, and whether it is current."""
     scope, project_root, config, ruleset = _prepare(is_global=is_global)
-    current, entries = install.status(
-        ruleset, config, scope=scope, project_root=project_root
-    )
+    _current, entries = install.status(ruleset, config, scope=scope, project_root=project_root)
 
     where = "Global" if scope == "global" else f"Project {paths.display(project_root)}"
     console.print(f"[bold]{where}[/bold]")
@@ -288,7 +284,9 @@ def status(*, is_global: GlobalFlag = False) -> None:
     console.print(table)
 
     if any(e.state == install.UPDATE for e in entries):
-        console.print("\n[yellow]Some files are out of date. Run [bold]debabble apply[/bold].[/yellow]")
+        console.print(
+            "\n[yellow]Some files are out of date. Run [bold]debabble apply[/bold].[/yellow]"
+        )
 
     for warning in install.shadowing_warnings(project_root if scope == "project" else None):
         console.print(f"[yellow]note[/yellow] {warning}")
@@ -298,7 +296,8 @@ def status(*, is_global: GlobalFlag = False) -> None:
 def render_cmd(
     *,
     target: Annotated[
-        str, Parameter(name=["--target", "-t"], help="Render exactly as this tool would receive it.")
+        str,
+        Parameter(name=["--target", "-t"], help="Render exactly as this tool would receive it."),
     ] = "",
     pack: PackOption = (),
     style: StyleOption = "",
@@ -338,7 +337,7 @@ def render_cmd(
 @app.command
 def packs(*, is_global: GlobalFlag = False) -> None:
     """List the rule packs and whether they are switched on."""
-    _, project_root, config, ruleset = _prepare(is_global=is_global)
+    _, project_root, _config, ruleset = _prepare(is_global=is_global)
     enabled = {p.id for p in ruleset.packs}
 
     from .packs import load_all_packs
@@ -382,7 +381,7 @@ def rules(
     ``debabble rules vocabulary.tier1`` prints that rule as TOML you can paste
     into debabble.toml and edit.
     """
-    _, _, _config, ruleset = _prepare(is_global=is_global, packs=pack)
+    *_, ruleset = _prepare(is_global=is_global, packs=pack)
 
     exact = ruleset.rule(query) if query else None
     if exact is not None:
@@ -452,7 +451,7 @@ def severity(
     """
     parsed = Severity.parse(level, where="severity")
     scope, project_root = _scope_and_root(is_global)
-    _, _, _config, ruleset = _prepare(is_global=is_global)
+    *_, ruleset = _prepare(is_global=is_global)
 
     if ruleset.rule(rule_id) is None and ruleset.pack(rule_id) is None:
         raise ConfigError(
@@ -488,8 +487,10 @@ def avoid(
     _edit_config(path, lambda doc: _add_avoid(doc, words))
     listed = ", ".join(words)
     console.print(f"Now avoiding: [bold]{listed}[/bold]")
-    console.print(f"[dim]Saved to {paths.display(path, relative_to=project_root)}. "
-                  "Run `debabble apply` to update your tools.[/dim]")
+    console.print(
+        f"[dim]Saved to {paths.display(path, relative_to=project_root)}. "
+        "Run `debabble apply` to update your tools.[/dim]"
+    )
 
 
 @app.command
@@ -587,7 +588,7 @@ def _add_avoid(document, words: tuple[str, ...]) -> None:
     custom["avoid"] = existing
 
 
-_STARTER_CONFIG = '''# debabble configuration.
+_STARTER_CONFIG = """# debabble configuration.
 # Commit this file: it is the whole story of what your tools receive.
 
 [profile]
@@ -628,7 +629,7 @@ allow = []
 # [[rules]]
 # id = "vocabulary.tier1-banned"
 # severity = "flag"
-'''
+"""
 
 
 def main() -> None:

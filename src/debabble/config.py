@@ -89,7 +89,7 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
     unknown = set(data) - _CONFIG_SECTIONS
     if unknown:
         raise ConfigError(
-            f"{where}: unknown section [{sorted(unknown)[0]}]. "
+            f"{where}: unknown section [{min(unknown)}]. "
             f"Valid sections are: {', '.join(sorted(_CONFIG_SECTIONS))}."
         )
 
@@ -99,7 +99,7 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
     unknown = set(profile) - _PROFILE_KEYS
     if unknown:
         raise ConfigError(
-            f"{where}: unknown key {sorted(unknown)[0]!r} in [profile]. "
+            f"{where}: unknown key {min(unknown)!r} in [profile]. "
             f"Valid keys are: {', '.join(sorted(_PROFILE_KEYS))}."
         )
 
@@ -133,7 +133,7 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
     unknown = set(custom) - _CUSTOM_KEYS
     if unknown:
         raise ConfigError(
-            f"{where}: unknown key {sorted(unknown)[0]!r} in [custom]. "
+            f"{where}: unknown key {min(unknown)!r} in [custom]. "
             f"Valid keys are: {', '.join(sorted(_CUSTOM_KEYS))}."
         )
     avoid = _as_str_tuple(custom.get("avoid", []), where=f"{where}: custom.avoid")
@@ -228,9 +228,7 @@ def _custom_pack(avoid: tuple[str, ...], overrides: list[dict[str, Any]]) -> Pac
             Rule(
                 id="custom.avoid",
                 title="Words you asked to avoid",
-                instruction=(
-                    "Never use these words or phrases: " + ", ".join(sorted(avoid)) + "."
-                ),
+                instruction=("Never use these words or phrases: " + ", ".join(sorted(avoid)) + "."),
                 severity=Severity.BAN,
                 kind="wordlist",
                 registers=("prose", "docs", "comments", "commits"),
@@ -314,9 +312,7 @@ def resolve_ruleset(config: Config, *, project_root: Path | None = None) -> Rule
     if custom is not None:
         custom = replace(
             custom,
-            rules=tuple(
-                r.with_severity(_severity_for(r, config.severity)) for r in custom.rules
-            ),
+            rules=tuple(r.with_severity(_severity_for(r, config.severity)) for r in custom.rules),
         )
         resolved.append(custom)
 

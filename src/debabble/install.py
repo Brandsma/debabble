@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import re
 import shutil
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
-from . import managed_block, manifest as manifest_mod, paths
+from . import managed_block, paths
+from . import manifest as manifest_mod
 from .config import Config
 from .manifest import InstalledFile, Manifest, content_hash
 from .models import RuleSet
@@ -185,7 +186,6 @@ def apply(
     scope: str = "project",
     project_root: Path | None = None,
     target_ids: tuple[str, ...] | None = None,
-    prune: bool = True,
     dry_run: bool = False,
 ) -> Outcome:
     """Write the rules into every selected target.
@@ -232,9 +232,7 @@ def apply(
                 installed.append(record)
 
     # Carry forward records for targets this run did not touch.
-    touched = {r.target for r in installed} | {
-        c.target for c in changes if c.action == SKIP
-    }
+    touched = {r.target for r in installed} | {c.target for c in changes if c.action == SKIP}
     kept = [f for f in previous.files if f.target not in touched]
 
     if explicit:
@@ -455,9 +453,7 @@ def status(
             continue
 
         target = get_target(record.target)
-        matching = [
-            f for f in target.files(scope, project_root or Path.cwd()) if f.path == path
-        ]
+        matching = [f for f in target.files(scope, project_root or Path.cwd()) if f.path == path]
         if matching:
             body, _ = build_content(matching[0], ruleset, style)
             expected = (
@@ -485,7 +481,9 @@ def shadowing_warnings(project_root: Path | None) -> tuple[str, ...]:
         ("AGENTS.override.md", "Codex"),
     ):
         if (project_root / name).exists():
-            found.append(f"{tool} reads {name} before AGENTS.md, so it will not see the block there.")
+            found.append(
+                f"{tool} reads {name} before AGENTS.md, so it will not see the block there."
+            )
     return tuple(dict.fromkeys(found))
 
 
