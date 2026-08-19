@@ -305,6 +305,13 @@ TARGETS: tuple[Target, ...] = (
         title="Amazon Q Developer",
         description="A rule file in .amazonq/rules.",
         resolver=_amazon_q,
+        notes={
+            "global": (
+                "Amazon Q has no user-wide rules directory; its global settings are agent "
+                "JSON files. Install per project, or add the project rule file to an agent's "
+                "resources list."
+            )
+        },
     ),
     Target(
         id="kiro",
