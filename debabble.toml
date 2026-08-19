@@ -1,0 +1,42 @@
+# debabble configuration for debabble itself.
+# Commit this file: it is the whole story of what your tools receive.
+
+[profile]
+# Packs to enable. Run `debabble packs` to see them all.
+packs = [
+    "chat-artifacts",
+    "vocabulary",
+    "phrases",
+    "structure",
+    "punctuation",
+    "code-comments",
+    "commits",
+    "docs-readme",
+    "minimal-docs",
+]
+
+# Tools to write to. Run `debabble targets` to see where each one writes.
+targets = ["claude-code", "agents-md", "claude-command"]
+
+# "minimal" is the absolutes only, "compact" states every rule, "full" adds a
+# wrong/right example to each.
+style = "compact"
+
+# Change how hard any rule or whole pack pushes: ban, flag, or off.
+# `debabble severity <id> <level>` edits this section for you.
+[severity]
+# "vocabulary.intensity-cluster" = "off"
+# "corporate-speak" = "ban"
+
+[custom]
+# Your own banned words. `debabble avoid <word>` adds to this list.
+avoid = []
+
+# Words a shipped rule bans that you want to keep using.
+allow = []
+
+# Edit any shipped rule by id, or define a new one. `debabble rules <id>`
+# prints a rule in exactly this format, ready to paste and change.
+# [[rules]]
+# id = "vocabulary.hype-verbs"
+# severity = "flag"

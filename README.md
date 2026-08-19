@@ -91,13 +91,19 @@ writing, it installs a `/debabble` command that rewrites text you already have.
 ```bash
 debabble packs          # the packs, and which are on
 debabble rules          # every rule in effect
-debabble rules vocabulary.tier1-banned   # one rule in full
+debabble rules vocabulary.hype-verbs     # one rule in full
 ```
 
 Rules come at two severities. A **ban** is absolute: never do this. A **flag** is
 density guidance: fine once, a tell in clusters. The split matters, because
 banning ordinary words teaches a model to write around the ban instead of
 writing plainly.
+
+An instruction file is read on every request, so its size is a real cost.
+`debabble apply` prints how much it is asking for, and three styles trade
+completeness against context: `minimal` carries the bans only, `compact` states
+every active rule, and `full` adds a wrong/right example to each. Narrowing
+`packs` is the other lever.
 
 Packs on by default: `chat-artifacts`, `vocabulary`, `phrases`, `structure`,
 `punctuation`, `code-comments`, `commits`, `docs-readme`, `minimal-docs`.
@@ -118,7 +124,7 @@ debabble avoid supercharge
 or a whole pack:
 
 ```bash
-debabble severity vocabulary.tier2-intensity off
+debabble severity vocabulary.intensity-cluster off
 debabble severity corporate-speak ban
 ```
 
@@ -128,9 +134,9 @@ and change anything: the wording, the word list, the examples, the severity.
 
 ```toml
 [[rules]]
-id = "vocabulary.tier1-banned"
+id = "vocabulary.hype-verbs"
 severity = "flag"
-words = ["delve", "tapestry", "leverage"]
+words = ["delve", "leverage", "showcase"]
 instruction = "Say what the action actually is."
 ```
 
@@ -151,10 +157,10 @@ debabble apply --pack vocabulary --pack phrases --severity phrases=flag --avoid 
 [profile]
 packs = ["chat-artifacts", "vocabulary", "phrases"]
 targets = ["claude-code", "cursor"]
-style = "compact"     # "full" adds a wrong/right example to every rule
+style = "compact"     # or "minimal" for the bans only, "full" to add examples
 
 [severity]
-"vocabulary.tier2-intensity" = "off"
+"vocabulary.intensity-cluster" = "off"
 
 [custom]
 avoid = ["supercharge"]

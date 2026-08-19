@@ -19,6 +19,7 @@ from .config import STYLES, Config, load_config, resolve_ruleset
 from .config import _rule_to_dict as rule_to_dict
 from .errors import ConfigError, DebabbleError
 from .models import Severity
+from .packs import load_all_packs
 from .render import render_body, render_rewrite_command
 from .targets import CONTENT_REWRITE, all_targets, get_target
 
@@ -110,6 +111,19 @@ def _parse_severity_flags(values: tuple[str, ...]) -> dict[str, Severity]:
     return parsed
 
 
+def _custom_pack_dirs(project_root: Path | None) -> list[Path]:
+    dirs = [paths.global_packs_dir()]
+    if project_root is not None:
+        dirs.append(paths.project_packs_dir(project_root))
+    return dirs
+
+
+def _known_ids(project_root: Path | None) -> set[str]:
+    """Every pack and rule id that exists, whether or not it is switched on."""
+    available = load_all_packs(_custom_pack_dirs(project_root))
+    return {p.id for p in available} | {r.id for p in available for r in p.rules}
+
+
 def _scope_and_root(is_global: bool) -> tuple[str, Path | None]:
     if is_global:
         return "global", None
@@ -166,13 +180,24 @@ def _print_changes(outcome: install.Outcome, project_root: Path | None) -> None:
 
 
 def _summarise_rules(ruleset, config: Config) -> None:
+    """One line describing the rule set, including what it costs to carry."""
     counts = ruleset.counts()
     active = len(ruleset.active_rules)
+    style = config.effective_style
+    size = len(render_body(ruleset, style=style))
     console.print(
         f"[bold]{active}[/bold] rules active "
         f"([red]{counts[Severity.BAN]} ban[/red], [yellow]{counts[Severity.FLAG]} flag[/yellow], "
         f"[dim]{counts[Severity.OFF]} off[/dim]) "
-        f"from {len(ruleset.packs)} packs, style [bold]{config.effective_style}[/bold]"
+        f"from {len(ruleset.packs)} packs"
+    )
+    # Instruction files are read on every request, so the size is worth showing.
+    hint = ""
+    if size > 15000 and style != "minimal":
+        hint = " — for less, try --style minimal or fewer packs"
+    console.print(
+        f"[dim]style {style}, about {size // 1000} kB "
+        f"(~{size // 4000}k tokens) in every session{hint}[/dim]"
     )
 
 
@@ -340,11 +365,7 @@ def packs(*, is_global: GlobalFlag = False) -> None:
     _, project_root, _config, ruleset = _prepare(is_global=is_global)
     enabled = {p.id for p in ruleset.packs}
 
-    from .packs import load_all_packs
-
-    custom_dirs = [paths.global_packs_dir()]
-    if project_root is not None:
-        custom_dirs.append(paths.project_packs_dir(project_root))
+    custom_dirs = _custom_pack_dirs(project_root)
 
     table = Table(box=None, pad_edge=False)
     table.add_column("pack", style="bold")
@@ -451,9 +472,10 @@ def severity(
     """
     parsed = Severity.parse(level, where="severity")
     scope, project_root = _scope_and_root(is_global)
-    *_, ruleset = _prepare(is_global=is_global)
 
-    if ruleset.rule(rule_id) is None and ruleset.pack(rule_id) is None:
+    # Check against every pack that exists, not only the ones switched on, so a
+    # severity can be set for a pack before it is enabled.
+    if rule_id not in _known_ids(project_root):
         raise ConfigError(
             f"No rule or pack called {rule_id!r}. "
             "Run `debabble rules` to list rules, or `debabble packs` to list packs."
@@ -608,13 +630,14 @@ packs = [
 # Tools to write to. Run `debabble targets` to see where each one writes.
 targets = ["claude-code"]
 
-# "compact" states the rules; "full" adds a wrong/right example for each.
+# "minimal" is the absolutes only, "compact" states every rule, "full" adds a
+# wrong/right example to each.
 style = "compact"
 
 # Change how hard any rule or whole pack pushes: ban, flag, or off.
 # `debabble severity <id> <level>` edits this section for you.
 [severity]
-# "vocabulary.tier2-intensity" = "off"
+# "vocabulary.intensity-cluster" = "off"
 # "corporate-speak" = "ban"
 
 [custom]
@@ -627,7 +650,7 @@ allow = []
 # Edit any shipped rule by id, or define a new one. `debabble rules <id>`
 # prints a rule in exactly this format, ready to paste and change.
 # [[rules]]
-# id = "vocabulary.tier1-banned"
+# id = "vocabulary.hype-verbs"
 # severity = "flag"
 """
 

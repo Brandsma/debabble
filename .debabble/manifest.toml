@@ -1,0 +1,29 @@
+# Written by debabble. Commit this file: it is what lets `debabble status`
+# and `debabble remove` work for anyone who clones this repository.
+
+version = 1
+scope = "project"
+style = "compact"
+packs = ["chat-artifacts", "vocabulary", "phrases", "structure", "punctuation", "code-comments", "commits", "docs-readme", "minimal-docs"]
+targets = ["claude-code", "agents-md", "claude-command"]
+
+[[files]]
+target = "claude-code"
+path = ".claude/rules/debabble.md"
+strategy = "own"
+created = false
+hash = "0a53265592244701"
+
+[[files]]
+target = "agents-md"
+path = "AGENTS.md"
+strategy = "block"
+created = false
+hash = "579330fdbfda3a4e"
+
+[[files]]
+target = "claude-command"
+path = ".claude/commands/debabble.md"
+strategy = "own"
+created = false
+hash = "17457d6bf6ef5837"

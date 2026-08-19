@@ -24,7 +24,7 @@ from .errors import ConfigError
 from .models import Pack, Rule, RuleSet, Severity
 from .packs import build_rule, load_all_packs
 
-STYLES = ("compact", "full")
+STYLES = ("minimal", "compact", "full")
 DEFAULT_STYLE = "compact"
 DEFAULT_TARGETS = ("claude-code",)
 

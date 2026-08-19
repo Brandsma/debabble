@@ -1,9 +1,15 @@
 """Turning rules into the instruction text that gets installed.
 
 The output is plain Markdown, because every tool debabble writes to reads plain
-Markdown. Two styles exist: ``compact`` states the rules, ``full`` adds a
-wrong/right example pair for each. Instruction files are paid for out of a
-model's context window, so compact is the default.
+Markdown. Three styles trade completeness against context, since an instruction
+file is paid for out of a model's context window on every request:
+
+``minimal``
+    The absolutes only: rules set to ``ban``. Roughly a third of the size.
+``compact`` (the default)
+    Every active rule, with term lists capped.
+``full``
+    Adds a wrong/right example to each rule.
 """
 
 from __future__ import annotations
@@ -34,7 +40,7 @@ FLAG_NOTE = (
 
 # A term list longer than this is summarised rather than printed in full, so a
 # single vocabulary rule cannot swamp the file.
-_MAX_TERMS_COMPACT = 60
+_MAX_TERMS_COMPACT = 40
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +124,8 @@ def render_body(
         for rule in banned:
             sections.extend(_render_rule(rule, style=effective_style, term_limit=term_limit))
 
-    flagged = _instruction_rules(ruleset, Severity.FLAG, skip_packs)
+    # The minimal style carries the absolutes and nothing else.
+    flagged = [] if style == "minimal" else _instruction_rules(ruleset, Severity.FLAG, skip_packs)
     if flagged:
         sections.extend(["", f"## {FLAG_HEADING}", "", FLAG_NOTE, ""])
         for rule in flagged:
@@ -135,10 +142,10 @@ def render(
 ) -> RenderResult:
     """Render the rules, trimming deterministically if a size budget demands it.
 
-    Trimming order is fixed so that the same inputs always produce the same
-    output: examples go first, then whole packs in ascending priority, which
-    leaves the highest-value rules (chat artifacts, your own rules) standing
-    longest.
+    Trimming is a fixed ladder, so the same inputs always produce the same
+    output: examples first, then the judgement rules, then whole packs in
+    ascending priority. That leaves the highest-value rules, chat artifacts and
+    your own, standing longest.
     """
     text = render_body(ruleset, style=style)
     if budget is None or len(text) <= budget:
@@ -151,16 +158,24 @@ def render(
             return RenderResult(text=text, style=style, dropped_examples=True)
     dropped_examples = style == "full"
 
-    # Step two: drop whole packs, least important first.
+    # Step two: fall back to the absolutes, which is still a coherent rule set.
+    effective = style
+    if style != "minimal":
+        text = render_body(ruleset, style="minimal")
+        if len(text) <= budget:
+            return RenderResult(text=text, style="minimal", dropped_examples=dropped_examples)
+        effective = "minimal"
+
+    # Step three: drop whole packs, least important first.
     order = sorted(ruleset.packs, key=lambda p: (p.priority, p.id))
     skip: set[str] = set()
     for pack in order:
         skip.add(pack.id)
-        text = render_body(ruleset, style=style, include_examples=False, skip_packs=frozenset(skip))
+        text = render_body(ruleset, style=effective, skip_packs=frozenset(skip))
         if len(text) <= budget:
             return RenderResult(
                 text=text,
-                style=style,
+                style=effective,
                 dropped_examples=dropped_examples,
                 dropped_packs=tuple(sorted(skip)),
             )
@@ -169,7 +184,7 @@ def render(
     # report it; silently writing a truncated file would be worse.
     return RenderResult(
         text=text,
-        style=style,
+        style=effective,
         dropped_examples=dropped_examples,
         dropped_packs=tuple(sorted(skip)),
     )
