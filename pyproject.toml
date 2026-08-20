@@ -25,8 +25,13 @@ dependencies = [
     "tomlkit>=0.13",
 ]
 
+[project.optional-dependencies]
+# The MCP server is optional so the CLI stays a small install.
+mcp = ["mcp>=2,<3"]
+
 [project.scripts]
 debabble = "debabble.cli:main"
+debabble-mcp = "debabble.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/brandsma/debabble"
@@ -34,6 +39,7 @@ Issues = "https://github.com/brandsma/debabble/issues"
 
 [dependency-groups]
 dev = [
+    "anyio>=4.14.2",
     "pytest>=8.0",
     "ruff>=0.6",
 ]

@@ -139,6 +139,29 @@ exclude = ["research/*", "CHANGELOG.md"]
 Files debabble itself wrote are skipped automatically; they contain the rules,
 banned words and all.
 
+## As an MCP server
+
+Instead of installing rules into files, an agent can ask for them directly:
+
+```bash
+uv tool install "debabble[mcp]"
+claude mcp add debabble --scope user -- uvx --from "debabble[mcp]" debabble-mcp
+```
+
+The `[mcp]` extra is required; without it the server has no protocol library and
+will not start.
+
+Five tools are offered. `get_style_rules` returns the rules as instructions, so
+an agent can pull them before writing without any file being installed. `lint`
+and `lint_files` check text or files. `explain_rule` gives the reasoning and a
+wrong/right example for one rule, along with TOML you can paste into your
+config. `list_rules` summarises what is in effect. There is also a `rewrite`
+prompt and a `debabble://styleguide` resource.
+
+The server reads the same configuration as the CLI, so a project's own
+`debabble.toml` applies. Pass `project_dir` to any tool when your editor starts
+the server somewhere other than the project.
+
 ## Making it yours
 
 The shipped rules are a starting point. Three ways to change them, shortest
@@ -233,10 +256,13 @@ files. Nothing is copied from it; the rules here are written fresh.
 ## Development
 
 ```bash
-uv sync
+uv sync --all-extras
 uv run pytest
 uv run ruff check
+uv run debabble lint .
 ```
+
+The last one is the point: debabble is held to its own rules in CI.
 
 ## Licence
 
