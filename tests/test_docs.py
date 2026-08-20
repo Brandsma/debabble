@@ -44,6 +44,26 @@ def commands_shown_in(text: str) -> set[str]:
     return found
 
 
+def table_rows(text: str, *header_cells: str) -> list[list[str]]:
+    """Rows of the markdown table whose header starts with these cells.
+
+    Cells are stripped, so a formatter padding the columns for alignment does
+    not change what this reads.
+    """
+    rows, wanted, inside = [], [c.lower() for c in header_cells], False
+    for line in text.splitlines():
+        if not line.lstrip().startswith("|"):
+            inside = False
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if [c.lower() for c in cells[: len(wanted)]] == wanted:
+            inside = True
+            continue
+        if inside and not set("".join(cells)) <= set("-: "):
+            rows.append(cells)
+    return rows
+
+
 def test_starter_config_is_valid():
     """`debabble init` must write a file the tool can read back."""
     config = parse_config(tomllib.loads(_starter_config()))
@@ -76,10 +96,8 @@ def test_readme_only_names_real_rules():
 
 def test_readme_target_table_matches_the_registry():
     """Every shipped target should be documented, and vice versa."""
-    # Read only the target table, which is the one with three columns whose
-    # header names the project and user-wide files.
-    section = README.split("| Target | Project file | User-wide file |", 1)[1].split("\n\n", 1)[0]
-    documented = set(re.findall(r"^\| `([\w-]+)` \|", section, re.MULTILINE))
+    rows = table_rows(README, "Target", "Project file", "User-wide file")
+    documented = {row[0].strip("`") for row in rows}
     registered = {t.id for t in all_targets()}
     assert documented == registered, (
         f"missing from README: {sorted(registered - documented)}; "
@@ -96,8 +114,9 @@ def test_readme_lists_the_default_packs_correctly():
     """The README names the default packs; that claim must stay true."""
     defaults = {p.id for p in load_all_packs([]) if p.default}
 
-    row = next(line for line in README.splitlines() if line.startswith("| Default |"))
-    claimed = set(re.findall(r"`([\w-]+)`", row))
+    rows = table_rows(README, "", "Packs", "Rules", "Cost per request")
+    row = next(r for r in rows if r[0] == "Default")
+    claimed = set(re.findall(r"`([\w-]+)`", " ".join(row)))
 
     assert claimed == defaults, (
         f"README says the default is {sorted(claimed)}; the packs say {sorted(defaults)}"
@@ -108,8 +127,8 @@ def test_readme_explains_every_opt_in_pack():
     """A pack nobody can find out about is a pack nobody turns on."""
     opt_in = {p.id for p in load_all_packs([]) if not p.default}
 
-    section = README.split("| Pack | Turn it on when |", 1)[1].split("\n\n", 1)[0]
-    documented = set(re.findall(r"^\| `([\w-]+)` \|", section, re.MULTILINE))
+    rows = table_rows(README, "Pack", "Turn it on when")
+    documented = {row[0].strip("`") for row in rows}
 
     assert documented == opt_in, (
         f"missing from README: {sorted(opt_in - documented)}; "

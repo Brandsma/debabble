@@ -792,7 +792,7 @@ def _add_avoid(document, words: tuple[str, ...]) -> None:
 
 
 _STARTER_TEMPLATE = """# debabble configuration.
-# Commit this file: it is the whole story of what your tools receive.
+# Commit this file so everyone working here installs the same rules.
 
 [profile]
 # Packs to enable. Run `debabble packs` to see them all.
