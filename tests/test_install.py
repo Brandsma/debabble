@@ -264,3 +264,44 @@ def test_a_target_without_a_scope_is_skipped_not_failed(ruleset, project):
 
     assert [c.action for c in outcome.changes] == [install.SKIP]
     assert "application settings" in outcome.changes[0].detail
+
+
+# ---------------------------------------------------------------------------
+# Global scope
+# ---------------------------------------------------------------------------
+
+
+def test_a_global_install_round_trips(ruleset, project, tmp_path):
+    """Installing user-wide writes outside any project, and removes cleanly."""
+    home = tmp_path / "home"
+    home.mkdir()
+
+    outcome = install.apply(
+        ruleset,
+        Config(targets=("claude-code", "gemini")),
+        scope="global",
+        project_root=None,
+    )
+    written = [c.path for c in outcome.changes if c.action == install.CREATE]
+
+    assert written, "nothing was written globally"
+    assert all(project not in p.parents for p in written), "a global install wrote into a project"
+    assert all(p.is_file() for p in written)
+
+    install.remove(scope="global", project_root=None)
+    assert not any(p.exists() for p in written)
+
+
+def test_hermes_global_uses_its_own_home(ruleset, project, tmp_path, monkeypatch):
+    """Hermes has no global rules file, so its block goes in SOUL.md."""
+    hermes_home = tmp_path / "hermes-home"
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+
+    install.apply(ruleset, Config(targets=("hermes",)), scope="global", project_root=None)
+    soul = hermes_home / "SOUL.md"
+
+    assert soul.is_file()
+    assert managed_block.BEGIN in soul.read_text(encoding="utf-8")
+
+    install.remove(scope="global", project_root=None)
+    assert not soul.exists()
