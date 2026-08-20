@@ -139,11 +139,16 @@ def expected_text(target_file: TargetFile, body: str, existing: str) -> str:
 
 
 def _read(path: Path) -> str | None:
+    """Read a file exactly as it is on disk.
+
+    newline="" turns off universal newline translation. Without it every read
+    reports LF whatever the file uses, and the line endings a file already had
+    cannot be preserved.
+    """
     try:
-        return path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return None
-    except OSError:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            return handle.read()
+    except (FileNotFoundError, OSError):
         return None
 
 
@@ -170,7 +175,7 @@ def ensure_backups_ignored(project_root: Path) -> None:
         return
     prefix = "" if not existing or existing.endswith("\n") else "\n"
     addition = f"{prefix}\n# debabble keeps machine-local backups here\n{entry}\n"
-    gitignore.write_text(existing + addition, encoding="utf-8")
+    gitignore.write_text(existing + addition, encoding="utf-8", newline="")
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +256,9 @@ def apply(
                         stale.unlink()
                     else:
                         text = managed_block.remove(_read(stale) or "")
-                        stale.write_text(text, encoding="utf-8") if text.strip() else stale.unlink()
+                        stale.write_text(
+                            text, encoding="utf-8", newline=""
+                        ) if text.strip() else stale.unlink()
                 changes.append(Change(old.target, stale, DELETE, "the target moved its file"))
 
     # Carry forward records for targets this run did not touch.
@@ -326,7 +333,7 @@ def _apply_one(
             _ensure_backup(path, scope, project_root, dry_run=dry_run)
         if not dry_run:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(new_text, encoding="utf-8")
+            path.write_text(new_text, encoding="utf-8", newline="")
 
     record = InstalledFile(
         target=target.id,
@@ -430,7 +437,7 @@ def _remove_target(
             continue
         if not dry_run:
             if stripped.strip():
-                path.write_text(stripped, encoding="utf-8")
+                path.write_text(stripped, encoding="utf-8", newline="")
             else:
                 path.unlink()
         changes.append(Change(target_id, path, STRIP, "removed the debabble block"))

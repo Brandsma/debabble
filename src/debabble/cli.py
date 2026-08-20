@@ -24,7 +24,9 @@ from .render import render_body, render_rewrite_command
 from .targets import CONTENT_REWRITE, all_targets, get_target
 
 console = Console()
-err_console = Console(stderr=True)
+# soft_wrap keeps Rich from breaking a long file path across lines, which
+# makes the path in an error message impossible to copy.
+err_console = Console(stderr=True, soft_wrap=True)
 
 app = App(
     name="debabble",

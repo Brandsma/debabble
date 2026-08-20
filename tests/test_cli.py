@@ -250,8 +250,12 @@ def test_errors_say_what_to_do(project, args, expected):
 def test_a_broken_config_names_the_file(project):
     (project / "debabble.toml").write_text("[profile]\npacks = 3\n", encoding="utf-8")
     result = run("status", cwd=project, expect_ok=False)
+    output = result.stdout + result.stderr
 
-    assert "debabble.toml" in (result.stdout + result.stderr)
+    # Compare with line breaks removed: a wrapped path is still a named path,
+    # and the temp directory is long enough on Linux to reach the margin.
+    assert "debabble.toml" in output.replace("\n", "")
+    assert "expected a list of strings" in output.replace("\n", "")
 
 
 def test_a_typo_in_a_rule_field_is_explained(project):

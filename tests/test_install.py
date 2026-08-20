@@ -425,3 +425,20 @@ def test_status_reports_an_ambiguous_file_instead_of_failing(ruleset, project):
 
     assert states["claude-code"] == install.UNCHANGED
     assert states["agents-md"] == install.DRIFT
+
+
+def test_lf_files_keep_their_line_endings(ruleset, project):
+    """The mirror of the CRLF case, and the one that catches Windows.
+
+    Writing in text mode on Windows turns every LF into CRLF, so a file that
+    used LF would silently change ending. Reading does the reverse everywhere,
+    which is why detect_newline needs untranslated IO on both sides.
+    """
+    agents = project / "AGENTS.md"
+    agents.write_bytes(USER_TEXT.encode("utf-8"))  # LF, on every platform
+
+    _apply(ruleset, project, ("agents-md",))
+    raw = agents.read_bytes()
+
+    assert b"\r\n" not in raw, "an LF file was rewritten with CRLF"
+    assert b"\n" in raw
