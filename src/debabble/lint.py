@@ -263,21 +263,25 @@ def split_source(text: str, suffix: str) -> tuple[str, str]:
     comment_chars: list[str] = []
     code_chars: list[str] = []
 
-    for line, original in zip(
+    for masked, original in zip(
         without_strings.splitlines(keepends=True), text.splitlines(keepends=True), strict=False
     ):
+        # Comment markers are located in the string-masked line, so a '#' inside
+        # a literal does not look like the start of a comment.
         start = None
         for marker in markers:
-            found = line.find(marker)
+            found = masked.find(marker)
             if found != -1 and (start is None or found < start):
                 start = found
+
         if start is None:
             comment_chars.append(re.sub(r"[^\n]", " ", original))
-            code_chars.append(original)
+            # The code half is the masked line: a symbol in a lookup table or a
+            # lexer pattern is data, not an identifier anybody chose.
+            code_chars.append(masked)
         else:
-            head, tail = original[:start], original[start:]
-            comment_chars.append(re.sub(r"[^\n]", " ", head) + tail)
-            code_chars.append(head + re.sub(r"[^\n]", " ", tail))
+            comment_chars.append(re.sub(r"[^\n]", " ", original[:start]) + original[start:])
+            code_chars.append(masked[:start] + re.sub(r"[^\n]", " ", masked[start:]))
 
     return "".join(comment_chars), "".join(code_chars)
 

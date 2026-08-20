@@ -4,9 +4,13 @@ Everything that touches a user's files goes through here, and every operation
 can be previewed with ``dry_run=True`` before anything is written.
 
 Two promises shape this module. Re-running ``apply`` with unchanged settings
-changes nothing on disk. And ``remove`` puts things back: files debabble created
-are deleted, files it only added a block to are edited back, and a backup taken
-before the first modification is restored when one exists.
+changes nothing on disk. And ``remove`` costs you nothing you wrote: files
+debabble created are deleted, and files it only added a block to have that block
+taken out of the file as it stands, keeping every edit made since.
+
+A snapshot is taken before the first time debabble modifies a file that already
+existed. It is a safety net you can reach for, not something replayed over your
+later work.
 """
 
 from __future__ import annotations

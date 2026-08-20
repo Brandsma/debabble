@@ -401,3 +401,29 @@ def test_code_indented_inside_a_list_is_still_code(ruleset):
     """Eight spaces inside a list clears the item indent, so it is code."""
     text = "# Doc\n\n- A point\n\n        Great question! I hope this helps.\n"
     assert lint_text(text, ruleset, register="docs") == []
+
+
+def test_symbols_in_data_are_not_read_as_identifiers(ruleset, tmp_path):
+    """A lookup table or lexer pattern holds characters as data, not as naming."""
+    path = tmp_path / "table.py"
+    path.write_text(
+        'SYMBOLS = ["☀", "\U0001f937"]\nPATTERN = r\'[∘○⊙]\'\n',
+        encoding="utf-8",
+    )
+    assert lint_file(path, ruleset) == []
+
+
+def test_an_emoji_in_a_comment_is_still_caught(ruleset, tmp_path):
+    """Masking data must not excuse decoration."""
+    path = tmp_path / "sample.py"
+    path.write_text("x = 1  # done \U0001f937\n", encoding="utf-8")
+    assert "punctuation.emoji" in ids(lint_file(path, ruleset))
+
+
+def test_a_hash_inside_a_string_does_not_start_a_comment(ruleset, tmp_path):
+    path = tmp_path / "sample.py"
+    path.write_text('colour = "#ffffff"  # the background\n', encoding="utf-8")
+    comments, _code = split_source(path.read_text(encoding="utf-8"), ".py")
+
+    assert "the background" in comments
+    assert "ffffff" not in comments, "the string was mistaken for the comment"
