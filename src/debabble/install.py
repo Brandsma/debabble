@@ -37,7 +37,6 @@ UPDATE = "update"
 UNCHANGED = "unchanged"
 DELETE = "delete"
 STRIP = "strip"
-RESTORE = "restore"
 SKIP = "skip"
 MISSING = "missing"
 DRIFT = "drift"
@@ -54,7 +53,7 @@ class Change:
 
     @property
     def is_write(self) -> bool:
-        return self.action in (CREATE, UPDATE, DELETE, STRIP, RESTORE)
+        return self.action in (CREATE, UPDATE, DELETE, STRIP)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,10 +64,6 @@ class Outcome:
     warnings: tuple[str, ...] = ()
     manifest: Manifest | None = None
     dry_run: bool = False
-
-    @property
-    def wrote_anything(self) -> bool:
-        return any(c.is_write for c in self.changes)
 
 
 # ---------------------------------------------------------------------------
@@ -97,10 +92,7 @@ def _backup_name(path: Path) -> str:
 def _record_path(path: Path, scope: str, project_root: Path | None) -> str:
     """Store project paths relative so a manifest survives being cloned elsewhere."""
     if scope == "project" and project_root is not None:
-        try:
-            return path.resolve().relative_to(project_root.resolve()).as_posix()
-        except ValueError:
-            pass
+        return paths.relative_posix(path, project_root.resolve())
     return str(path)
 
 
@@ -121,6 +113,8 @@ def build_content(
 
     result = render(ruleset, style=style, budget=budget)
     warnings: list[str] = []
+    if result.style != style:
+        warnings.append(f"the {style} style did not fit, so only the banned rules were written")
     if result.dropped_examples:
         warnings.append("examples were dropped to fit the size limit")
     if result.dropped_packs:
@@ -131,6 +125,17 @@ def build_content(
             "reduce the enabled packs or use --style compact"
         )
     return header + result.text, tuple(warnings)
+
+
+def expected_text(target_file: TargetFile, body: str, existing: str) -> str:
+    """What a file should contain once this content is installed.
+
+    Shared by apply and status so the two can never disagree about whether a
+    file is up to date.
+    """
+    if target_file.owns_file:
+        return body if body.endswith("\n") else body + "\n"
+    return managed_block.upsert(existing, body)
 
 
 def _read(path: Path) -> str | None:
@@ -152,12 +157,6 @@ def _ensure_backup(path: Path, scope: str, project_root: Path | None, *, dry_run
         return
     directory.mkdir(parents=True, exist_ok=True)
     shutil.copy2(path, destination)
-
-
-def backup_for(path: Path, scope: str, project_root: Path | None) -> Path | None:
-    """The snapshot taken before debabble first modified this file, if there is one."""
-    source = backup_dir(scope, project_root) / _backup_name(path)
-    return source if source.is_file() else None
 
 
 def ensure_backups_ignored(project_root: Path) -> None:
@@ -317,10 +316,7 @@ def _apply_one(
     existing = _read(path)
     created = existing is None
 
-    if target_file.owns_file:
-        new_text = body if body.endswith("\n") else body + "\n"
-    else:
-        new_text = managed_block.upsert(existing or "", body)
+    new_text = expected_text(target_file, body, existing or "")
 
     if existing is not None and existing == new_text:
         action = UNCHANGED
@@ -422,7 +418,13 @@ def _remove_target(
         # install-time backup instead would throw away every edit made since,
         # which is the opposite of what uninstalling should cost you. The
         # backup stays on disk as a safety net.
-        stripped = managed_block.remove(existing)
+        try:
+            stripped = managed_block.remove(existing)
+        except BlockError as err:
+            # Leave this file alone and carry on: aborting here would leave the
+            # other targets removed and the manifest still listing them.
+            changes.append(Change(target_id, path, SKIP, str(err)))
+            continue
         if stripped == existing:
             changes.append(Change(target_id, path, MISSING, "no debabble block found"))
             continue
@@ -489,11 +491,12 @@ def status(
         matching = [f for f in target.files(scope, project_root or Path.cwd()) if f.path == path]
         if matching:
             body, _ = build_content(matching[0], ruleset, style)
-            expected = (
-                (body if body.endswith("\n") else body + "\n")
-                if matching[0].owns_file
-                else managed_block.upsert(existing, body)
-            )
+            try:
+                expected = expected_text(matching[0], body, existing)
+            except BlockError as err:
+                # Reporting one unreadable file must not hide the others.
+                entries.append(StatusEntry(record.target, path, DRIFT, str(err)))
+                continue
             state = UNCHANGED if expected == existing else UPDATE
             detail = "" if state == UNCHANGED else "settings changed; run apply"
             entries.append(StatusEntry(record.target, path, state, detail))
@@ -515,20 +518,21 @@ def lint_excludes(
     return config.exclude + tuple(f.path for f in installed.files)
 
 
-def shadowing_warnings(project_root: Path | None) -> tuple[str, ...]:
-    """Files that make another tool ignore what debabble wrote to AGENTS.md."""
-    if project_root is None:
-        return ()
+def shadowing_warnings(
+    project_root: Path | None, target_ids: tuple[str, ...] = ()
+) -> tuple[str, ...]:
+    """Warnings from the selected targets about files that outrank theirs.
+
+    Only the targets in play are asked, so installing claude-code alone does not
+    warn about an AGENTS.md debabble never wrote.
+    """
     found: list[str] = []
-    for name, tool in (
-        (".rules", "Zed"),
-        (".cursorrules", "Zed"),
-        ("AGENTS.override.md", "Codex"),
-    ):
-        if (project_root / name).exists():
-            found.append(
-                f"{tool} reads {name} before AGENTS.md, so it will not see the block there."
-            )
+    for target_id in target_ids:
+        try:
+            target = get_target(target_id)
+        except TargetError:
+            continue
+        found.extend(target.shadow_warnings(project_root))
     return tuple(dict.fromkeys(found))
 
 
@@ -537,7 +541,6 @@ __all__ = [
     "DELETE",
     "DRIFT",
     "MISSING",
-    "RESTORE",
     "SKIP",
     "STRIP",
     "UNCHANGED",

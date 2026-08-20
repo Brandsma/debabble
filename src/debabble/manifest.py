@@ -16,15 +16,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-import tomlkit
+from .managed_block import normalise_newlines
 
 MANIFEST_VERSION = 1
 
 
 def content_hash(text: str) -> str:
     """A stable hash of file content, insensitive to line-ending style."""
-    normalised = text.replace("\r\n", "\n").replace("\r", "\n")
-    return hashlib.sha256(normalised.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(normalise_newlines(text).encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +113,9 @@ def load(path: Path, *, scope: str = "project") -> Manifest:
 
 def save(manifest: Manifest, path: Path) -> None:
     """Write a manifest, creating its directory if needed."""
+    # tomlkit is only needed to write, so it stays out of every read path.
+    import tomlkit
+
     path.parent.mkdir(parents=True, exist_ok=True)
     document: dict[str, Any] = {
         "version": manifest.version,

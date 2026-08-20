@@ -113,3 +113,17 @@ def test_no_frontmatter_renders_as_nothing():
 def test_target_ids_are_unique():
     ids = [t.id for t in all_targets()]
     assert len(ids) == len(set(ids))
+
+
+def test_only_the_selected_targets_warn_about_shadowing(root):
+    """Installing claude-code must not warn about an AGENTS.md nobody wrote."""
+    root.mkdir(parents=True, exist_ok=True)
+    (root / ".cursorrules").touch()
+
+    assert get_target("claude-code").shadow_warnings(root) == ()
+    assert get_target("agents-md").shadow_warnings(root)
+
+
+def test_shadow_warnings_are_silent_when_nothing_shadows(root):
+    root.mkdir(parents=True, exist_ok=True)
+    assert get_target("agents-md").shadow_warnings(root) == ()

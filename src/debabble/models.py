@@ -28,7 +28,7 @@ KINDS = ("wordlist", "phrase", "regex", "guidance")
 UNITS = ("paragraph", "section", "document", "words")
 
 # Which part of a document a rule looks at.
-SCOPES = ("body", "heading", "any")
+RULE_SCOPES = ("body", "heading", "any")
 
 
 class Severity(StrEnum):
@@ -110,8 +110,9 @@ class Rule:
     why: str = ""
     suggest: tuple[str, ...] = ()
 
-    # `fix = "safe"` opts a rule into mechanical `debabble lint --fix`
-    # substitutions (the first `suggest` entry, or a literal replacement).
+    # `fix = "safe"` marks a rule whose replacement is always correct, so a
+    # mechanical fixer could apply it without judgement. Nothing applies these
+    # yet; the field records which rules would qualify.
     fix: str = ""
     replacement: str = ""
 
@@ -170,13 +171,6 @@ class Pack:
     def active_rules(self) -> tuple[Rule, ...]:
         return tuple(r for r in self.rules if r.severity.is_active)
 
-    def rule(self, rule_id: str) -> Rule | None:
-        qualified = rule_id if "." in rule_id else f"{self.id}.{rule_id}"
-        for r in self.rules:
-            if r.id == qualified:
-                return r
-        return None
-
 
 @dataclass(frozen=True, slots=True)
 class RuleSet:
@@ -191,12 +185,6 @@ class RuleSet:
     @property
     def active_rules(self) -> tuple[Rule, ...]:
         return tuple(r for r in self.rules if r.severity.is_active)
-
-    def for_channel(self, channel: str) -> tuple[Rule, ...]:
-        return tuple(r for r in self.active_rules if r.delivered_via(channel))
-
-    def for_register(self, register: str) -> tuple[Rule, ...]:
-        return tuple(r for r in self.active_rules if r.applies_to(register))
 
     def rule(self, rule_id: str) -> Rule | None:
         for r in self.rules:
@@ -237,7 +225,7 @@ __all__ = [
     "CHANNELS",
     "KINDS",
     "REGISTERS",
-    "SCOPES",
+    "RULE_SCOPES",
     "UNITS",
     "Pack",
     "Rule",

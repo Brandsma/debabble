@@ -52,14 +52,6 @@ class RenderResult:
     dropped_examples: bool = False
     dropped_packs: tuple[str, ...] = ()
 
-    @property
-    def size(self) -> int:
-        return len(self.text)
-
-    @property
-    def was_trimmed(self) -> bool:
-        return self.dropped_examples or bool(self.dropped_packs)
-
 
 def _format_terms(terms: tuple[str, ...], *, limit: int | None) -> str:
     shown = list(terms)

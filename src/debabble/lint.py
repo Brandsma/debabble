@@ -18,8 +18,11 @@ import os
 import re
 from dataclasses import dataclass
 from fnmatch import fnmatch
+from functools import lru_cache
 from pathlib import Path
 
+from . import paths
+from .managed_block import fenced_spans
 from .models import Rule, RuleSet, Severity
 
 # Suppress the next line, or the line it appears on.
@@ -69,11 +72,6 @@ class Finding:
     message: str
     path: Path | None = None
 
-    @property
-    def location(self) -> str:
-        where = str(self.path) if self.path else "-"
-        return f"{where}:{self.line}:{self.column}"
-
     def as_dict(self) -> dict:
         return {
             "rule": self.rule_id,
@@ -108,14 +106,26 @@ def registers_for_path(path: Path) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 
-def _blank(match: re.Match) -> str:
+def blank_text(text: str) -> str:
     """Replace a span with spaces so every later offset still lines up."""
-    return re.sub(r"[^\n]", " ", match.group(0))
+    return re.sub(r"[^\n]", " ", text)
 
 
-_FENCE = re.compile(r"^([ \t]*)(```|~~~).*?(?:\n\1?\2|\Z)", re.DOTALL | re.MULTILINE)
+def _blank(match: re.Match) -> str:
+    return blank_text(match.group(0))
+
+
+def blank_spans(text: str, spans: list[tuple[int, int]]) -> str:
+    """Blank the given ranges, keeping the text the same length."""
+    if not spans:
+        return text
+    out = list(text)
+    for start, end in spans:
+        out[start:end] = blank_text(text[start:end])
+    return "".join(out)
+
+
 _INLINE_CODE = re.compile(r"`[^`\n]+`")
-_INDENTED_CODE = re.compile(r"^(?: {4}|\t).*$", re.MULTILINE)
 
 # A word or two inside quotation marks is a word being named, not a word being
 # used: writing about "delve" is not writing badly. Longer quotations are left
@@ -167,7 +177,7 @@ def mask_indented_code(text: str) -> str:
 
         if in_block or (previous_blank and indent >= threshold):
             in_block = True
-            out[i] = re.sub(r"[^\n]", " ", line)
+            out[i] = blank_text(line)
         previous_blank = False
 
     return "".join(out)
@@ -179,7 +189,7 @@ def mask_markdown(text: str) -> str:
     Without this, any document that quotes bad writing as an example is accused
     of it, including debabble's own README.
     """
-    masked = _FENCE.sub(_blank, text)
+    masked = blank_spans(text, fenced_spans(text))
     masked = mask_indented_code(masked)
     masked = _INLINE_CODE.sub(_blank, masked)
     masked = _MENTION.sub(_blank, masked)
@@ -196,11 +206,14 @@ def mask_for_scope(text: str, scope: str) -> str:
     the same word, and the other way round.
     """
     if scope == "heading":
-        # Keep heading lines, blank everything else.
-        kept = list(re.sub(r"[^\n]", " ", text))
-        for match in _HEADING_LINE.finditer(text):
-            kept[match.start() : match.end()] = text[match.start() : match.end()]
-        return "".join(kept)
+        # Blank everything that is not a heading line.
+        headings = [(m.start(), m.end()) for m in _HEADING_LINE.finditer(text)]
+        gaps, cursor = [], 0
+        for start, end in headings:
+            gaps.append((cursor, start))
+            cursor = end
+        gaps.append((cursor, len(text)))
+        return blank_spans(text, gaps)
     if scope == "body":
         return _HEADING_LINE.sub(_blank, text)
     return text
@@ -275,13 +288,13 @@ def split_source(text: str, suffix: str) -> tuple[str, str]:
                 start = found
 
         if start is None:
-            comment_chars.append(re.sub(r"[^\n]", " ", original))
+            comment_chars.append(blank_text(original))
             # The code half is the masked line: a symbol in a lookup table or a
             # lexer pattern is data, not an identifier anybody chose.
             code_chars.append(masked)
         else:
-            comment_chars.append(re.sub(r"[^\n]", " ", original[:start]) + original[start:])
-            code_chars.append(masked[:start] + re.sub(r"[^\n]", " ", masked[start:]))
+            comment_chars.append(blank_text(original[:start]) + original[start:])
+            code_chars.append(masked[:start] + blank_text(masked[start:]))
 
     return "".join(comment_chars), "".join(code_chars)
 
@@ -326,23 +339,26 @@ def compile_rule(rule: Rule) -> re.Pattern | None:
     return None
 
 
-def checkable(ruleset: RuleSet, register: str) -> list[tuple[Rule, re.Pattern]]:
-    """Active rules for a register that the linter can actually check."""
-    out = []
-    for rule in ruleset.active_rules:
-        if not rule.applies_to(register) or not rule.delivered_via("linter"):
-            continue
-        pattern = compile_rule(rule)
-        if pattern is not None:
-            out.append((rule, pattern))
-    return out
+@lru_cache(maxsize=32)
+def checkable(ruleset: RuleSet, register: str) -> tuple[tuple[Rule, re.Pattern], ...]:
+    """Active rules for a register that the linter can actually check.
+
+    Cached because this is per-file work that does not vary per file: building
+    the alternations for 214 words and 273 phrases costs more than checking a
+    small file, and a tree walk calls it twice for every file it visits.
+    """
+    return tuple(
+        (rule, pattern)
+        for rule in ruleset.active_rules
+        if rule.applies_to(register)
+        and rule.delivered_via("linter")
+        and (pattern := compile_rule(rule)) is not None
+    )
 
 
 # ---------------------------------------------------------------------------
 # Segmenting, for density rules
 # ---------------------------------------------------------------------------
-
-_HEADING = re.compile(r"^#{1,6} ", re.MULTILINE)
 
 
 def _segments(text: str, unit: str) -> list[tuple[int, int]]:
@@ -359,7 +375,7 @@ def _segments(text: str, unit: str) -> list[tuple[int, int]]:
         return [s for s in spans if s[1] > s[0]]
 
     if unit == "section":
-        starts = [m.start() for m in _HEADING.finditer(text)]
+        starts = [m.start() for m in _HEADING_LINE.finditer(text)]
         if not starts:
             return [(0, len(text))]
         bounds = [0, *starts, len(text)]
@@ -447,7 +463,7 @@ def lint_text(
     findings: list[Finding] = []
 
     for rule, pattern in checkable(ruleset, register):
-        scoped = mask_for_scope(searchable, rule.scope) if rule.scope != "any" else searchable
+        scoped = mask_for_scope(searchable, rule.scope)
         for start, end in _segments(scoped, rule.unit):
             window = scoped[start:end]
             matches = list(pattern.finditer(window))
@@ -535,29 +551,36 @@ def walk_files(
     filtered afterwards, which matters: descending into a virtual environment
     to throw the results away takes longer than the linting does.
     """
-    base = project_root or root
+    # Resolve the base once. Doing it per file made an excluded tree of 2,000
+    # files take 674 ms, almost all of it in Path.resolve.
+    base = (project_root or root).resolve()
     found: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
+        directory = Path(dirpath)
         for name in sorted(filenames):
-            path = Path(dirpath) / name
-            if registers_for_path(path) and not is_excluded(path, base, exclude):
-                found.append(path)
+            path = directory / name
+            if not registers_for_path(path):
+                continue
+            if exclude and matches_exclude(paths.relative_posix(path, base), exclude):
+                continue
+            found.append(path)
     return found
+
+
+def matches_exclude(relative: str, exclude: tuple[str, ...]) -> bool:
+    """Whether a project-relative path matches one of the exclude globs."""
+    return any(
+        fnmatch(relative, pattern) or fnmatch(relative, f"{pattern.rstrip('/')}/*")
+        for pattern in exclude
+    )
 
 
 def is_excluded(path: Path, root: Path, exclude: tuple[str, ...]) -> bool:
     """Whether a path matches one of the configured exclude globs."""
     if not exclude:
         return False
-    try:
-        relative = path.resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        relative = path.as_posix()
-    return any(
-        fnmatch(relative, pattern) or fnmatch(relative, f"{pattern.rstrip('/')}/*")
-        for pattern in exclude
-    )
+    return matches_exclude(paths.relative_posix(path, root), exclude)
 
 
 def lint_paths(
@@ -583,6 +606,17 @@ def lint_paths(
     return findings
 
 
+def summarise(findings: list[Finding]) -> dict:
+    """Counts every caller reports the same way."""
+    banned = sum(1 for f in findings if f.severity is Severity.BAN)
+    return {
+        "findings": [f.as_dict() for f in findings],
+        "banned": banned,
+        "flagged": len(findings) - banned,
+        "clean": not findings,
+    }
+
+
 def worst_severity(findings: list[Finding]) -> Severity | None:
     if any(f.severity is Severity.BAN for f in findings):
         return Severity.BAN
@@ -600,5 +634,6 @@ __all__ = [
     "mask_markdown",
     "registers_for_path",
     "split_source",
+    "summarise",
     "worst_severity",
 ]

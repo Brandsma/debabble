@@ -10,7 +10,7 @@ import re
 import tomllib
 from pathlib import Path
 
-from debabble.cli import _STARTER_CONFIG
+from debabble.cli import _starter_config
 from debabble.config import STYLES, parse_config, resolve_ruleset
 from debabble.models import Severity
 from debabble.packs import load_all_packs
@@ -46,21 +46,21 @@ def commands_shown_in(text: str) -> set[str]:
 
 def test_starter_config_is_valid():
     """`debabble init` must write a file the tool can read back."""
-    config = parse_config(tomllib.loads(_STARTER_CONFIG))
+    config = parse_config(tomllib.loads(_starter_config()))
     resolve_ruleset(config)
 
 
 def test_starter_config_names_real_packs_and_targets():
-    config = parse_config(tomllib.loads(_STARTER_CONFIG))
+    config = parse_config(tomllib.loads(_starter_config()))
     assert set(config.packs or ()) <= known_pack_ids()
     assert set(config.targets) <= {t.id for t in all_targets()}
 
 
 def test_commented_examples_in_the_starter_config_are_real():
     """Even the commented-out lines should point at things that exist."""
-    for rule_id in re.findall(r'#\s*id = "([\w.-]+)"', _STARTER_CONFIG):
+    for rule_id in re.findall(r'#\s*id = "([\w.-]+)"', _starter_config()):
         assert rule_id in known_rule_ids(), f"starter config mentions unknown rule {rule_id}"
-    for quoted in re.findall(r'#\s*"([\w.-]+)" = "(?:ban|flag|off)"', _STARTER_CONFIG):
+    for quoted in re.findall(r'#\s*"([\w.-]+)" = "(?:ban|flag|off)"', _starter_config()):
         assert quoted in known_rule_ids() | known_pack_ids(), (
             f"starter config mentions unknown rule or pack {quoted}"
         )

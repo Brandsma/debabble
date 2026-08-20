@@ -16,11 +16,10 @@ from rich.table import Table
 from rich.text import Text
 
 from . import install, paths
-from .config import STYLES, Config, load_config, resolve_ruleset
-from .config import _rule_to_dict as rule_to_dict
+from .config import STYLES, Config, known_ids, load_config, resolve_ruleset
 from .errors import ConfigError, DebabbleError
 from .models import REGISTERS, Severity
-from .packs import load_all_packs
+from .packs import load_all_packs, rule_to_toml
 from .render import render_body, render_rewrite_command
 from .targets import CONTENT_REWRITE, all_targets, get_target
 
@@ -81,13 +80,18 @@ DryRunFlag = Annotated[
     bool, Parameter(name=["--dry-run", "-n"], help="Show what would change; write nothing.")
 ]
 
+_SEVERITY_STYLES = {
+    Severity.BAN: "red",
+    Severity.FLAG: "yellow",
+    Severity.OFF: "dim",
+}
+
 _ACTION_STYLES = {
     install.CREATE: ("green", "created"),
     install.UPDATE: ("yellow", "updated"),
     install.UNCHANGED: ("dim", "unchanged"),
     install.DELETE: ("red", "deleted"),
     install.STRIP: ("red", "block removed"),
-    install.RESTORE: ("red", "restored"),
     install.SKIP: ("dim", "skipped"),
     install.MISSING: ("dim", "missing"),
     install.DRIFT: ("magenta", "edited by hand"),
@@ -112,17 +116,9 @@ def _parse_severity_flags(values: tuple[str, ...]) -> dict[str, Severity]:
     return parsed
 
 
-def _custom_pack_dirs(project_root: Path | None) -> list[Path]:
-    dirs = [paths.global_packs_dir()]
-    if project_root is not None:
-        dirs.append(paths.project_packs_dir(project_root))
-    return dirs
-
-
 def _known_ids(project_root: Path | None) -> set[str]:
     """Every pack and rule id that exists, whether or not it is switched on."""
-    available = load_all_packs(_custom_pack_dirs(project_root))
-    return {p.id for p in available} | {r.id for p in available for r in p.rules}
+    return known_ids(load_all_packs(paths.custom_pack_dirs(project_root)))
 
 
 def _scope_and_root(is_global: bool) -> tuple[str, Path | None]:
@@ -251,7 +247,10 @@ def apply(
     )
     _print_changes(outcome, project_root)
 
-    for warning in install.shadowing_warnings(project_root if scope == "project" else None):
+    for warning in install.shadowing_warnings(
+        project_root if scope == "project" else None,
+        tuple(config.effective_targets),
+    ):
         console.print("[yellow]note[/yellow]", escape(warning))
 
     if save and not dry_run:
@@ -368,7 +367,10 @@ def status(*, is_global: GlobalFlag = False) -> None:
             "\n[yellow]Some files are out of date. Run [bold]debabble apply[/bold].[/yellow]"
         )
 
-    for warning in install.shadowing_warnings(project_root if scope == "project" else None):
+    for warning in install.shadowing_warnings(
+        project_root if scope == "project" else None,
+        tuple(config.effective_targets),
+    ):
         console.print("[yellow]note[/yellow]", escape(warning))
 
 
@@ -493,7 +495,7 @@ def _print_findings(findings: list, config: Config) -> None:
 
     root = paths.find_project_root()
     for finding in findings:
-        colour = "red" if finding.severity is Severity.BAN else "yellow"
+        colour = _SEVERITY_STYLES[finding.severity]
         where = (
             f"{paths.display(finding.path, relative_to=root)}:{finding.line}:{finding.column}"
             if finding.path
@@ -519,7 +521,7 @@ def packs(*, is_global: GlobalFlag = False) -> None:
     _, project_root, _config, ruleset = _prepare(is_global=is_global)
     enabled = {p.id for p in ruleset.packs}
 
-    custom_dirs = _custom_pack_dirs(project_root)
+    custom_dirs = paths.custom_pack_dirs(project_root)
 
     table = Table(box=None, pad_edge=False)
     table.add_column("pack", style="bold")
@@ -583,11 +585,7 @@ def rules(
     table.add_column("severity")
     table.add_column("what it says", overflow="fold")
     for rule in matches:
-        colour = {
-            Severity.BAN: "red",
-            Severity.FLAG: "yellow",
-            Severity.OFF: "dim",
-        }[rule.severity]
+        colour = _SEVERITY_STYLES[rule.severity]
         table.add_row(rule.id, f"[{colour}]{rule.severity}[/{colour}]", rule.instruction)
     console.print(table)
     console.print(
@@ -598,8 +596,6 @@ def rules(
 
 
 def _show_rule(rule) -> None:
-    import tomlkit
-
     console.print(f"[bold]{rule.id}[/bold] — {rule.display_title}")
     if rule.why:
         console.print(f"[dim]{rule.why}[/dim]")
@@ -607,11 +603,10 @@ def _show_rule(rule) -> None:
         console.print(f"\n  [red]no[/red]  {rule.wrong}")
         console.print(f"  [green]yes[/green] {rule.right}")
 
-    document = {"rules": [rule_to_dict(rule)]}
     console.print("\n[dim]Paste this into debabble.toml to change it:[/dim]")
     # Straight to stdout: Rich would read [[rules]] as markup and wrap long
     # lines, and this text has to survive being copied verbatim.
-    sys.stdout.write(tomlkit.dumps(document).rstrip() + "\n")
+    sys.stdout.write(rule_to_toml(rule) + "\n")
 
 
 @app.command
@@ -646,8 +641,18 @@ def severity(
 
     # Setting a severity on a pack nobody enabled changes nothing you can see.
     *_, ruleset = _prepare(is_global=is_global)
-    pack_id = rule_id.split(".", 1)[0]
-    if ruleset.pack(pack_id) is None and ruleset.rule(rule_id) is None:
+    # Name the pack that would have to be switched on, whether the user gave a
+    # pack id, a full rule id, or a rule's short id.
+    if (
+        ruleset.pack(rule_id) is not None
+        or ruleset.rule(rule_id) is not None
+        or any(r.short_id == rule_id for r in ruleset.rules)
+    ):
+        pack_id = None
+    else:
+        pack_id = rule_id.split(".", 1)[0]
+
+    if pack_id is not None:
         console.print(
             f"[yellow]note[/yellow] {pack_id} is not one of your packs, so this has no "
             f"effect yet. Turn it on with: debabble apply --pack {pack_id} --save"
@@ -719,7 +724,7 @@ def init(*, is_global: GlobalFlag = False, force: bool = False) -> None:
         return
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_STARTER_CONFIG, encoding="utf-8")
+    path.write_text(_starter_config(), encoding="utf-8")
     console.print(f"Wrote {paths.display(path, relative_to=project_root)}")
     console.print("[dim]Edit it, then run `debabble apply`.[/dim]")
 
@@ -763,7 +768,7 @@ def _edit_config(path: Path, mutate) -> None:
     if path.is_file():
         document = tomlkit.parse(path.read_text(encoding="utf-8"))
     else:
-        document = tomlkit.parse(_STARTER_CONFIG)
+        document = tomlkit.parse(_starter_config())
     mutate(document)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(tomlkit.dumps(document), encoding="utf-8")
@@ -790,22 +795,12 @@ def _add_avoid(document, words: tuple[str, ...]) -> None:
     custom["avoid"] = existing
 
 
-_STARTER_CONFIG = """# debabble configuration.
+_STARTER_TEMPLATE = """# debabble configuration.
 # Commit this file: it is the whole story of what your tools receive.
 
 [profile]
 # Packs to enable. Run `debabble packs` to see them all.
-packs = [
-    "chat-artifacts",
-    "vocabulary",
-    "phrases",
-    "structure",
-    "punctuation",
-    "code-comments",
-    "commits",
-    "docs-readme",
-    "minimal-docs",
-]
+{packs}
 
 # Tools to write to. Run `debabble targets` to see where each one writes.
 targets = ["claude-code"]
@@ -833,6 +828,19 @@ allow = []
 # id = "vocabulary.hype-verbs"
 # severity = "flag"
 """
+
+
+def _starter_config() -> str:
+    """The starter file, with the pack list taken from the packs themselves.
+
+    Writing the nine names by hand meant a new default pack silently missed
+    everyone who had already run `debabble init`.
+    """
+    from .packs import load_builtin_packs
+
+    names = [p.id for p in load_builtin_packs() if p.default]
+    listed = [f'    "{name}",' for name in names]
+    return _STARTER_TEMPLATE.format(packs="\n".join(["packs = [", *listed, "]"]))
 
 
 def main() -> None:

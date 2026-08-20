@@ -22,10 +22,10 @@ from typing import Annotated, Any
 
 from . import install, paths
 from .config import STYLES, Config, load_config, resolve_ruleset
-from .config import _rule_to_dict as rule_to_dict
 from .errors import DebabbleError
-from .lint import lint_paths, lint_text
+from .lint import lint_paths, lint_text, summarise
 from .models import REGISTERS, RuleSet
+from .packs import rule_to_toml
 from .render import render_body, render_rewrite_command
 
 _MISSING_DEPENDENCY = (
@@ -105,12 +105,7 @@ def lint(
 
     ruleset, _config, _root = load_rules(project_dir or None)
     findings = lint_text(text, ruleset, register=register)
-    return {
-        "findings": [f.as_dict() for f in findings],
-        "banned": sum(1 for f in findings if f.severity == "ban"),
-        "flagged": sum(1 for f in findings if f.severity == "flag"),
-        "clean": not findings,
-    }
+    return summarise(findings)
 
 
 @mcp.tool(
@@ -129,12 +124,7 @@ def lint_files(
     findings = lint_paths(
         [Path(p) for p in paths_to_check], ruleset, exclude=exclude, project_root=root
     )
-    return {
-        "findings": [f.as_dict() for f in findings],
-        "banned": sum(1 for f in findings if f.severity == "ban"),
-        "flagged": sum(1 for f in findings if f.severity == "flag"),
-        "clean": not findings,
-    }
+    return summarise(findings)
 
 
 @mcp.tool(
@@ -187,7 +177,7 @@ def explain_rule(
         "right": rule.right,
         "terms": list(rule.terms),
         "registers": list(rule.registers),
-        "toml": _as_toml(rule),
+        "toml": rule_to_toml(rule),
     }
 
 
@@ -219,12 +209,6 @@ def list_rules(
             for p in packs
         ],
     }
-
-
-def _as_toml(rule) -> str:
-    import tomlkit
-
-    return tomlkit.dumps({"rules": [rule_to_dict(rule)]}).rstrip()
 
 
 # ---------------------------------------------------------------------------

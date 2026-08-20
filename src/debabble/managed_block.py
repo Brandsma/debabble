@@ -25,12 +25,15 @@ NOTE = "<!-- Managed by debabble. Edits between these markers are overwritten. -
 _BEGIN_LINE = re.compile(r"^[ \t]*" + re.escape(BEGIN) + r"[ \t]*$", re.MULTILINE)
 _END_LINE = re.compile(r"^[ \t]*" + re.escape(END) + r"[ \t]*$", re.MULTILINE)
 
-_FENCE = re.compile(r"^[ \t]*(```|~~~).*?(?:\n[ \t]*\1|\Z)", re.DOTALL | re.MULTILINE)
+# Both the linter and the block splicer need to know where fenced code is, and
+# they have to agree: a fix here must not leave one of them treating a fenced
+# example as real content.
+FENCE = re.compile(r"^([ \t]*)(```|~~~).*?(?:\n\1?\2|\Z)", re.DOTALL | re.MULTILINE)
 
 
-def _fenced_spans(text: str) -> list[tuple[int, int]]:
-    """Ranges covered by fenced code blocks, which markers inside do not count."""
-    return [(m.start(), m.end()) for m in _FENCE.finditer(text)]
+def fenced_spans(text: str) -> list[tuple[int, int]]:
+    """Ranges covered by fenced code blocks."""
+    return [(m.start(), m.end()) for m in FENCE.finditer(text)]
 
 
 def _outside_fences(matches, spans) -> list:
@@ -47,7 +50,7 @@ def find_block(text: str) -> tuple[int, int] | None:
     exactly one well-ordered pair. Guessing here means editing the wrong span of
     somebody's file.
     """
-    spans = _fenced_spans(text)
+    spans = fenced_spans(text)
     begins = _outside_fences(list(_BEGIN_LINE.finditer(text)), spans)
     ends = _outside_fences(list(_END_LINE.finditer(text)), spans)
 
@@ -71,17 +74,9 @@ def wrap(body: str) -> str:
     return f"{BEGIN}\n{NOTE}\n\n{body.strip()}\n\n{END}"
 
 
-def contains(text: str) -> bool:
-    try:
-        return find_block(text) is not None
-    except BlockError:
-        return True
-
-
-def extract(text: str) -> str | None:
-    """The current managed block, markers included, or None if there is not one."""
-    found = find_block(text)
-    return text[found[0] : found[1]] if found else None
+def normalise_newlines(text: str) -> str:
+    """One line-ending style, so comparisons and hashes cannot disagree."""
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def detect_newline(text: str) -> str:
@@ -137,10 +132,12 @@ def remove(existing: str) -> str:
 __all__ = [
     "BEGIN",
     "END",
+    "FENCE",
     "NOTE",
-    "contains",
     "detect_newline",
-    "extract",
+    "fenced_spans",
+    "find_block",
+    "normalise_newlines",
     "remove",
     "upsert",
     "wrap",

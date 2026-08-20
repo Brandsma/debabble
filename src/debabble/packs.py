@@ -12,6 +12,7 @@ import difflib
 import re
 import tomllib
 from dataclasses import fields as dataclass_fields
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from .models import (
     CHANNELS,
     KINDS,
     REGISTERS,
-    SCOPES,
+    RULE_SCOPES,
     UNITS,
     Pack,
     Rule,
@@ -30,12 +31,12 @@ from .models import (
 )
 
 # Rule fields that hold a tuple of strings in the model but a list in TOML.
-_LIST_FIELDS = {"registers", "channels", "words", "phrases", "suggest"}
 _RULE_FIELDS = {f.name for f in dataclass_fields(Rule)}
 _PACK_KEYS = {"id", "title", "description", "version", "references", "default", "priority"}
 
 
-def _did_you_mean(name: str, known: set[str]) -> str:
+def did_you_mean(name: str, known) -> str:
+    """A trailing suggestion for a mistyped name, or nothing when none is close."""
     close = difflib.get_close_matches(name, sorted(known), n=1)
     return f" Did you mean {close[0]!r}?" if close else ""
 
@@ -49,7 +50,7 @@ def build_rule(data: dict[str, Any], *, pack_id: str, where: str) -> Rule:
     unknown = set(data) - _RULE_FIELDS
     if unknown:
         name = min(unknown)
-        raise PackError(f"{where}: unknown rule field {name!r}.{_did_you_mean(name, _RULE_FIELDS)}")
+        raise PackError(f"{where}: unknown rule field {name!r}.{did_you_mean(name, _RULE_FIELDS)}")
 
     raw_id = str(data.get("id", "")).strip()
     if not raw_id:
@@ -72,7 +73,7 @@ def build_rule(data: dict[str, Any], *, pack_id: str, where: str) -> Rule:
         )
     if "scope" in data:
         kwargs["scope"] = validate_choice(
-            str(data["scope"]), SCOPES, where=f"{where}: rule {rule_id!r} scope"
+            str(data["scope"]), RULE_SCOPES, where=f"{where}: rule {rule_id!r} scope"
         )
     if "unit" in data:
         kwargs["unit"] = validate_choice(
@@ -155,9 +156,7 @@ def build_pack(data: dict[str, Any], *, source: str) -> Pack:
     unknown = set(meta) - _PACK_KEYS
     if unknown:
         name = min(unknown)
-        raise PackError(
-            f"{source}: unknown [pack] field {name!r}.{_did_you_mean(name, _PACK_KEYS)}"
-        )
+        raise PackError(f"{source}: unknown [pack] field {name!r}.{did_you_mean(name, _PACK_KEYS)}")
 
     pack_id = str(meta.get("id", "")).strip()
     if not pack_id:
@@ -192,6 +191,19 @@ def build_pack(data: dict[str, Any], *, source: str) -> Pack:
     )
 
 
+def rule_to_toml(rule: Rule) -> str:
+    """One rule as a pasteable [[rules]] block.
+
+    Both `debabble rules <id>` and the MCP explain_rule tool promise the same
+    text, so they call the same function.
+    """
+    import tomlkit
+
+    from .config import rule_to_dict
+
+    return tomlkit.dumps({"rules": [rule_to_dict(rule)]}).rstrip()
+
+
 def load_pack_file(path: Path, *, source: str | None = None) -> Pack:
     """Read and validate one pack TOML file."""
     try:
@@ -211,9 +223,14 @@ def builtin_pack_files() -> list[Path]:
     return sorted(BUILTIN_PACK_DIR.glob("*.toml"))
 
 
-def load_builtin_packs() -> list[Pack]:
-    """Load every pack bundled with debabble."""
-    return [load_pack_file(p, source="built-in") for p in builtin_pack_files()]
+@lru_cache(maxsize=1)
+def load_builtin_packs() -> tuple[Pack, ...]:
+    """Load every pack bundled with debabble.
+
+    Cached: these ship inside the wheel and cannot change while the process
+    runs, and parsing the ten files was most of the wall time of a command.
+    """
+    return tuple(load_pack_file(p, source="built-in") for p in builtin_pack_files())
 
 
 def discover_packs(directories: list[Path]) -> list[Pack]:
@@ -243,6 +260,7 @@ __all__ = [
     "build_pack",
     "build_rule",
     "builtin_pack_files",
+    "did_you_mean",
     "discover_packs",
     "load_all_packs",
     "load_builtin_packs",

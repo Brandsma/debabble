@@ -396,3 +396,32 @@ def test_a_target_that_moves_its_file_cleans_up_the_old_one(ruleset, project):
 
     assert (project / ".devin" / "rules" / "debabble.md").is_file()
     assert not old.exists(), "the old rules file was left behind for the tool to read"
+
+
+def test_remove_skips_an_ambiguous_file_without_abandoning_the_rest(ruleset, project):
+    """One unreadable file must not leave the others half-removed."""
+    agents = project / "AGENTS.md"
+    agents.write_text(USER_TEXT, encoding="utf-8")  # pre-existing, so removal edits it
+    _apply(ruleset, project, ("agents-md", "claude-code"))
+    agents.write_text(agents.read_text(encoding="utf-8") + managed_block.BEGIN + "\n", "utf-8")
+
+    outcome = install.remove(scope="project", project_root=project)
+    actions = {c.target: c.action for c in outcome.changes}
+
+    assert actions["agents-md"] == install.SKIP
+    assert actions["claude-code"] == install.DELETE
+    assert agents.exists(), "the ambiguous file was edited anyway"
+
+
+def test_status_reports_an_ambiguous_file_instead_of_failing(ruleset, project):
+    _apply(ruleset, project, ("agents-md", "claude-code"))
+    agents = project / "AGENTS.md"
+    agents.write_text(agents.read_text(encoding="utf-8") + managed_block.BEGIN + "\n", "utf-8")
+
+    _current, entries = install.status(
+        ruleset, Config(targets=("agents-md", "claude-code")), scope="project", project_root=project
+    )
+    states = {e.target: e.state for e in entries}
+
+    assert states["claude-code"] == install.UNCHANGED
+    assert states["agents-md"] == install.DRIFT

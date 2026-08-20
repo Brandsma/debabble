@@ -98,6 +98,26 @@ def project_backup_dir(project_root: Path) -> Path:
     return project_state_dir(project_root) / "backups"
 
 
+def relative_posix(path: Path, root: Path) -> str:
+    """A path relative to a root, in posix form, or the path itself if unrelated.
+
+    ``root`` is expected to be resolved already: resolving it per call is the
+    single most expensive thing a directory walk can do on Windows.
+    """
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def custom_pack_dirs(project_root: Path | None) -> list[Path]:
+    """Where user-written rule packs are looked for, global first."""
+    dirs = [global_packs_dir()]
+    if project_root is not None:
+        dirs.append(project_packs_dir(project_root))
+    return dirs
+
+
 def display(path: Path, *, relative_to: Path | None = None) -> str:
     """Render a path for the terminal: relative when that is shorter and clearer."""
     try:
@@ -113,6 +133,7 @@ def display(path: Path, *, relative_to: Path | None = None) -> str:
 
 __all__ = [
     "APP_NAME",
+    "custom_pack_dirs",
     "display",
     "env_dir",
     "find_project_root",
@@ -126,6 +147,7 @@ __all__ = [
     "project_manifest_file",
     "project_packs_dir",
     "project_state_dir",
+    "relative_posix",
     "user_config_dir",
     "user_data_dir",
 ]

@@ -25,7 +25,7 @@ from pathlib import Path
 from . import paths
 from .errors import TargetError
 
-SCOPES = ("project", "global")
+INSTALL_SCOPES = ("project", "global")
 
 # What gets written into the file: the rules themselves, or the rewrite command.
 CONTENT_RULES = "rules"
@@ -56,10 +56,12 @@ class Target:
     description: str
     resolver: Callable[[str, Path | None], list[TargetFile]]
     notes: dict[str, str] = field(default_factory=dict)
-    default: bool = False
+    # Files that make a tool ignore what debabble wrote, as (filename, tool).
+    # This is a fact about the target, so it lives with the target.
+    shadowed_by: tuple[tuple[str, str], ...] = ()
 
     def files(self, scope: str, project_root: Path | None) -> list[TargetFile]:
-        if scope not in SCOPES:
+        if scope not in INSTALL_SCOPES:
             raise TargetError(f"Unknown scope {scope!r}. Use 'project' or 'global'.")
         if scope == "project" and project_root is None:
             raise TargetError(f"{self.id}: a project scope needs a project directory.")
@@ -68,11 +70,15 @@ class Target:
     def note(self, scope: str) -> str:
         return self.notes.get(scope, "")
 
-    def supports(self, scope: str, project_root: Path | None = None) -> bool:
-        try:
-            return bool(self.files(scope, project_root or Path.cwd()))
-        except TargetError:
-            return False
+    def shadow_warnings(self, project_root: Path | None) -> tuple[str, ...]:
+        """Warnings about other files that outrank what this target writes."""
+        if project_root is None:
+            return ()
+        return tuple(
+            f"{tool} reads {name} before the file debabble wrote, so it will not see these rules."
+            for name, tool in self.shadowed_by
+            if (project_root / name).exists()
+        )
 
 
 def _home_file(*parts: str) -> Path:
@@ -219,7 +225,6 @@ TARGETS: tuple[Target, ...] = (
         title="Claude Code",
         description="Rules file loaded at launch, project and user scope.",
         resolver=_claude_code,
-        default=True,
     ),
     Target(
         id="claude-command",
@@ -245,12 +250,11 @@ TARGETS: tuple[Target, ...] = (
         title="AGENTS.md",
         description="The shared standard read by Codex, Zed, Warp, Jules, and others.",
         resolver=_agents_md,
-        notes={
-            "project": (
-                "Some tools prefer a different file when one exists: Zed reads .rules or "
-                ".cursorrules first, and Codex reads AGENTS.override.md first."
-            )
-        },
+        shadowed_by=(
+            (".rules", "Zed"),
+            (".cursorrules", "Zed"),
+            ("AGENTS.override.md", "Codex"),
+        ),
     ),
     Target(
         id="copilot",
@@ -337,10 +341,6 @@ def all_targets() -> tuple[Target, ...]:
     return TARGETS
 
 
-def default_target_ids() -> tuple[str, ...]:
-    return tuple(t.id for t in TARGETS if t.default)
-
-
 def format_frontmatter(fields: tuple[tuple[str, str], ...]) -> str:
     """YAML frontmatter, in the order the target declared it."""
     if not fields:
@@ -352,12 +352,11 @@ def format_frontmatter(fields: tuple[tuple[str, str], ...]) -> str:
 __all__ = [
     "CONTENT_REWRITE",
     "CONTENT_RULES",
-    "SCOPES",
+    "INSTALL_SCOPES",
     "TARGETS",
     "Target",
     "TargetFile",
     "all_targets",
-    "default_target_ids",
     "format_frontmatter",
     "get_target",
 ]

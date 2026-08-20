@@ -14,7 +14,6 @@ Customisation happens at three levels, from quickest to most thorough:
 
 from __future__ import annotations
 
-import difflib
 import tomllib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -23,7 +22,7 @@ from typing import Any
 from . import paths
 from .errors import ConfigError
 from .models import Pack, Rule, RuleSet, Severity
-from .packs import build_rule, load_all_packs
+from .packs import build_rule, did_you_mean, load_all_packs
 
 STYLES = ("minimal", "compact", "full")
 DEFAULT_STYLE = "compact"
@@ -213,6 +212,20 @@ def load_config(project_root: Path | None, *, scope: str = "project") -> Config:
 # --------------------------------------------------------------------------
 
 
+def known_ids(packs) -> set[str]:
+    """Every name a user may write in ``[severity]``: packs, rule ids, short ids.
+
+    One derivation, so the command line cannot refuse a name the config file
+    would have accepted.
+    """
+    ids = {p.id for p in packs}
+    for pack in packs:
+        for rule in pack.rules:
+            ids.add(rule.id)
+            ids.add(rule.short_id)
+    return ids
+
+
 def _severity_for(rule: Rule, severity_map: dict[str, Severity]) -> Severity:
     """Rule-specific settings win over pack-wide ones."""
     if rule.id in severity_map:
@@ -275,9 +288,7 @@ def resolve_ruleset(config: Config, *, project_root: Path | None = None) -> Rule
     so a quick ``[severity]`` entry always wins over a longer ``[[rules]]`` block
     that also set a severity.
     """
-    custom_dirs = [paths.global_packs_dir()]
-    if project_root is not None:
-        custom_dirs.append(paths.project_packs_dir(project_root))
+    custom_dirs = paths.custom_pack_dirs(project_root)
 
     available = {p.id: p for p in load_all_packs(custom_dirs)}
 
@@ -311,12 +322,10 @@ def resolve_ruleset(config: Config, *, project_root: Path | None = None) -> Rule
 
     # A severity set on an id that does not exist does nothing, silently. Say so:
     # a typo here is the difference between a rule being off and being on.
-    known_ids = set(available) | {r.id for p in available.values() for r in p.rules}
-    known_ids |= {r.short_id for p in available.values() for r in p.rules}
+    known = known_ids(available.values())
     for key in config.severity:
-        if key not in known_ids:
-            close = difflib.get_close_matches(key, sorted(known_ids), n=1)
-            hint = f" Did you mean {close[0]!r}?" if close else ""
+        if key not in known:
+            hint = did_you_mean(key, known)
             raise ConfigError(
                 f"[severity] names {key!r}, which is not a rule or pack.{hint} "
                 "Run `debabble rules` or `debabble packs` to see what exists."
@@ -331,7 +340,7 @@ def resolve_ruleset(config: Config, *, project_root: Path | None = None) -> Rule
         rules: list[Rule] = []
         for rule in pack.rules:
             if rule.id in edits:
-                merged = {**_rule_to_dict(rule), **edits[rule.id]}
+                merged = {**rule_to_dict(rule), **edits[rule.id]}
                 rule = build_rule(merged, pack_id=pid, where="debabble.toml")
             rule = _apply_allow(rule, allow)
             rule = rule.with_severity(_severity_for(rule, config.severity))
@@ -350,7 +359,7 @@ def resolve_ruleset(config: Config, *, project_root: Path | None = None) -> Rule
     return RuleSet(packs=tuple(resolved))
 
 
-def _rule_to_dict(rule: Rule) -> dict[str, Any]:
+def rule_to_dict(rule: Rule) -> dict[str, Any]:
     """A rule as plain TOML-shaped data, for merging and for `rules show`."""
     data: dict[str, Any] = {
         "id": rule.id,
@@ -385,8 +394,10 @@ __all__ = [
     "DEFAULT_TARGETS",
     "STYLES",
     "Config",
+    "known_ids",
     "load_config",
     "load_config_file",
     "parse_config",
     "resolve_ruleset",
+    "rule_to_dict",
 ]
