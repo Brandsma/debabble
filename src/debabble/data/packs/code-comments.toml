@@ -28,7 +28,7 @@ registers = ["comments"]
 # Two extra conditions keep this off shapes it was never aimed at: a negative
 # lookahead for lines that read as disabled code, and a requirement of at least
 # two words after the verb, since '# print function' is a label, not a restatement.
-pattern = '(?i)^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*(?!(?:return|import|from|def|class|if|for|while|with|try|except|print)\b[^\n]*[():=])(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))[ \t]+(?:(?:the|a|an|all|our|new)[ \t]+)?\w+(?:[ \t]+\w+)+[ \t]*[.:;]?[ \t]*(?:\*/)?[ \t]*$'
+pattern = '(?i)^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*(?!(?:return|import|from|def|class|if|for|while|with|try|except|print)\b[^\n]*[():=])(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))[ \t]+(?:(?:the|a|an|all|our|new)[ \t]+)?\w+(?:[ \t]+\w+){1,3}[ \t]*[.:;]?[ \t]*(?:\*/)?[ \t]*$'
 instruction = "Write a comment only where the code would surprise a reader, and make it say why. Never restate the line below it."
 why = "A comment that repeats the code adds a second thing to keep in sync and tells the reader nothing the line did not already say."
 wrong = "# Loop through the items"
