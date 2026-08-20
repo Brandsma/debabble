@@ -214,6 +214,9 @@ def apply(
     style: StyleOption = "",
     severity: SeverityOption = (),
     avoid: AvoidOption = (),
+    save: Annotated[
+        bool, Parameter(help="Write the options used into your config so they stick.")
+    ] = False,
     is_global: GlobalFlag = False,
     dry_run: DryRunFlag = False,
 ) -> None:
@@ -221,6 +224,7 @@ def apply(
 
     Re-running this is safe: unchanged settings change nothing on disk. Naming
     targets explicitly refreshes only those, and never uninstalls anything.
+    Add --save to keep the options you passed.
     """
     scope, project_root, config, ruleset = _prepare(
         is_global=is_global,
@@ -248,6 +252,56 @@ def apply(
 
     for warning in install.shadowing_warnings(project_root if scope == "project" else None):
         console.print(f"[yellow]note[/yellow] {warning}")
+
+    if save and not dry_run:
+        _save_profile(scope, project_root, config, targets=target, packs=pack, style=style)
+    elif target and not dry_run:
+        # A one-off --target is not remembered, and a later plain `apply`
+        # reconciles against the config and would take it back out again.
+        on_disk = load_config(project_root, scope=scope)
+        unsaved = [t for t in target if t not in on_disk.effective_targets]
+        if unsaved:
+            console.print(
+                f"\n[yellow]note[/yellow] {', '.join(unsaved)} "
+                "is not in your config, so a later plain `debabble apply` will remove it. "
+                "Re-run with --save to keep it."
+            )
+
+
+def _save_profile(
+    scope: str,
+    project_root: Path | None,
+    config: Config,
+    *,
+    targets: tuple[str, ...],
+    packs: tuple[str, ...],
+    style: str,
+) -> None:
+    """Persist the options used on this run into the config file.
+
+    New targets are added to what the file already asks for rather than
+    replacing it, so saving one target does not quietly drop the others.
+    """
+    path = _config_path(scope, project_root)
+    # `config` has already been merged with the command line, so the file's own
+    # targets have to be read again to add to them rather than overwrite them.
+    on_disk = load_config(project_root, scope=scope)
+
+    def mutate(document) -> None:
+        import tomlkit
+
+        if "profile" not in document:
+            document["profile"] = tomlkit.table()
+        profile = document["profile"]
+        if targets:
+            profile["targets"] = list(dict.fromkeys(on_disk.targets + targets))
+        if packs:
+            profile["packs"] = list(packs)
+        if style:
+            profile["style"] = style
+
+    _edit_config(path, mutate)
+    console.print(f"\nSaved to {paths.display(path, relative_to=project_root)}.")
 
 
 @app.command
@@ -537,7 +591,9 @@ def _show_rule(rule) -> None:
 
     document = {"rules": [rule_to_dict(rule)]}
     console.print("\n[dim]Paste this into debabble.toml to change it:[/dim]")
-    console.print(tomlkit.dumps(document).rstrip())
+    # Straight to stdout: Rich would read [[rules]] as markup and wrap long
+    # lines, and this text has to survive being copied verbatim.
+    sys.stdout.write(tomlkit.dumps(document).rstrip() + "\n")
 
 
 @app.command

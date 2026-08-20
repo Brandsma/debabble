@@ -54,6 +54,7 @@ packages = ["src/debabble"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["slow: runs the command line in a subprocess"]
 
 [tool.ruff]
 line-length = 100

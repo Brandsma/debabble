@@ -60,8 +60,12 @@ lists every supported tool and the exact file it writes for the current scope.
 Pick the ones you use:
 
 ```bash
-debabble apply --target claude-code --target cursor --target agents-md
+debabble apply --target claude-code --target cursor --target agents-md --save
 ```
+
+`--save` writes those choices into your config. Without it the targets apply
+now but are not remembered, and a later plain `debabble apply` reconciles
+against the config and takes them back out.
 
 | Target | Project file | User-wide file |
 | --- | --- | --- |
