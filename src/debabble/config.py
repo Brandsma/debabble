@@ -14,6 +14,7 @@ Customisation happens at three levels, from quickest to most thorough:
 
 from __future__ import annotations
 
+import difflib
 import tomllib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -307,6 +308,19 @@ def resolve_ruleset(config: Config, *, project_root: Path | None = None) -> Rule
             )
         else:
             additions.append(entry)
+
+    # A severity set on an id that does not exist does nothing, silently. Say so:
+    # a typo here is the difference between a rule being off and being on.
+    known_ids = set(available) | {r.id for p in available.values() for r in p.rules}
+    known_ids |= {r.short_id for p in available.values() for r in p.rules}
+    for key in config.severity:
+        if key not in known_ids:
+            close = difflib.get_close_matches(key, sorted(known_ids), n=1)
+            hint = f" Did you mean {close[0]!r}?" if close else ""
+            raise ConfigError(
+                f"[severity] names {key!r}, which is not a rule or pack.{hint} "
+                "Run `debabble rules` or `debabble packs` to see what exists."
+            )
 
     allow = frozenset(a.lower() for a in config.allow)
 

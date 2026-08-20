@@ -11,6 +11,7 @@ from typing import Annotated
 
 from cyclopts import App, Parameter
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
@@ -64,7 +65,7 @@ SeverityOption = Annotated[
     tuple[str, ...],
     Parameter(
         name=["--severity"],
-        help="Change a rule or pack: --severity vocabulary.tier2=off. Repeatable.",
+        help="Change a rule or pack: --severity vocabulary.intensity-cluster=off. Repeatable.",
         consume_multiple=True,
     ),
 ]
@@ -173,7 +174,7 @@ def _print_changes(outcome: install.Outcome, project_root: Path | None) -> None:
         console.print(line)
 
     for warning in outcome.warnings:
-        console.print(f"[yellow]note[/yellow] {warning}")
+        console.print("[yellow]note[/yellow]", escape(warning))
 
     if outcome.dry_run:
         console.print("\n[dim]Nothing was written. Drop --dry-run to apply.[/dim]")
@@ -251,7 +252,7 @@ def apply(
     _print_changes(outcome, project_root)
 
     for warning in install.shadowing_warnings(project_root if scope == "project" else None):
-        console.print(f"[yellow]note[/yellow] {warning}")
+        console.print("[yellow]note[/yellow]", escape(warning))
 
     if save and not dry_run:
         _save_profile(scope, project_root, config, targets=target, packs=pack, style=style)
@@ -368,7 +369,7 @@ def status(*, is_global: GlobalFlag = False) -> None:
         )
 
     for warning in install.shadowing_warnings(project_root if scope == "project" else None):
-        console.print(f"[yellow]note[/yellow] {warning}")
+        console.print("[yellow]note[/yellow]", escape(warning))
 
 
 @app.command(name="render")
@@ -445,16 +446,29 @@ def lint_cmd(
     targets_to_check = list(paths) or [Path.cwd()]
     exclude = install.lint_excludes(config, scope=scope, project_root=project_root)
 
+    missing = [p for p in targets_to_check if not p.exists()]
+    if missing:
+        raise ConfigError("No such file or directory: " + ", ".join(str(p) for p in missing) + ".")
+
     if register:
         if register not in REGISTERS:
             raise ConfigError(f"--register must be one of: {', '.join(REGISTERS)}.")
-        text_findings: list[lint_engine.Finding] = []
+        # Forcing a register still has to walk directories, or naming one
+        # would quietly check nothing at all.
+        files: list[Path] = []
         for path in targets_to_check:
-            if path.is_file():
-                text_findings += lint_engine.lint_text(
-                    path.read_text(encoding="utf-8"), ruleset, register=register, path=path
-                )
-        findings = text_findings
+            if path.is_dir():
+                files += lint_engine.walk_files(path, exclude, project_root=project_root)
+            else:
+                files.append(path)
+
+        findings = []
+        for path in files:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            findings += lint_engine.lint_text(text, ruleset, register=register, path=path)
     else:
         findings = lint_engine.lint_paths(
             targets_to_check, ruleset, exclude=exclude, project_root=project_root
@@ -629,6 +643,15 @@ def severity(
         f"Set [bold]{rule_id}[/bold] to [bold]{parsed}[/bold] "
         f"in {paths.display(path, relative_to=project_root)}."
     )
+
+    # Setting a severity on a pack nobody enabled changes nothing you can see.
+    *_, ruleset = _prepare(is_global=is_global)
+    pack_id = rule_id.split(".", 1)[0]
+    if ruleset.pack(pack_id) is None and ruleset.rule(rule_id) is None:
+        console.print(
+            f"[yellow]note[/yellow] {pack_id} is not one of your packs, so this has no "
+            f"effect yet. Turn it on with: debabble apply --pack {pack_id} --save"
+        )
     console.print("[dim]Run `debabble apply` to update your tools.[/dim]")
 
 
@@ -702,8 +725,23 @@ def init(*, is_global: GlobalFlag = False, force: bool = False) -> None:
 
 
 @app.default
-def overview() -> None:
+def overview(
+    unknown: Annotated[
+        tuple[str, ...], Parameter(show=False, help="Anything that is not a command.")
+    ] = (),
+) -> None:
     """Show what is installed here and what to do next."""
+    if unknown:
+        # Without this, a typo reports "Unused Tokens", which tells the reader
+        # nothing about what they should have typed.
+        import difflib
+
+        commands = sorted(name for name in app if not name.startswith("-"))
+        close = difflib.get_close_matches(unknown[0], commands, n=1)
+        hint = f" Did you mean 'debabble {close[0]}'?" if close else ""
+        raise ConfigError(
+            f"There is no '{unknown[0]}' command.{hint} The commands are: {', '.join(commands)}."
+        )
     status(is_global=False)
 
 
@@ -802,7 +840,9 @@ def main() -> None:
     try:
         app()
     except DebabbleError as err:
-        err_console.print(f"[red]error[/red] {err}")
+        # Escape the message: it routinely names TOML sections like [profile],
+        # and Rich would read those as markup and print nothing in their place.
+        err_console.print("[red]error[/red]", escape(str(err)))
         raise SystemExit(1) from err
     except KeyboardInterrupt:
         raise SystemExit(130) from None

@@ -262,3 +262,56 @@ def test_a_typo_in_a_rule_field_is_explained(project):
     result = run("status", cwd=project, expect_ok=False)
 
     assert "severity" in (result.stdout + result.stderr)
+
+
+# ---------------------------------------------------------------------------
+# Messages that have to survive being printed
+# ---------------------------------------------------------------------------
+
+
+def test_a_config_error_still_names_the_section(project):
+    """Rich reads [profile] as markup; the message must escape it."""
+    (project / "debabble.toml").write_text("[nonsense]\nx = 1\n", encoding="utf-8")
+    result = run("status", cwd=project, expect_ok=False)
+
+    assert "[nonsense]" in (result.stdout + result.stderr)
+
+
+def test_linting_a_path_that_is_not_there_is_an_error(project):
+    result = run("lint", "no-such-file.md", cwd=project, expect_ok=False)
+
+    assert result.returncode != 0
+    assert "No such file" in (result.stdout + result.stderr)
+
+
+def test_forcing_a_register_still_walks_directories(project):
+    (project / "docs").mkdir()
+    (project / "docs" / "a.md").write_text("Great question!\n", encoding="utf-8")
+
+    result = run("lint", "docs", "--register", "docs", cwd=project, expect_ok=False)
+
+    assert result.returncode == 1
+    assert "sycophancy" in result.stdout
+
+
+def test_a_typo_in_a_severity_id_is_refused(project):
+    result = run("apply", "--severity", "vocabulari=off", "--dry-run", cwd=project, expect_ok=False)
+    output = result.stdout + result.stderr
+
+    assert result.returncode != 0
+    assert "vocabulary" in output, "the error should suggest the real id"
+
+
+def test_a_mistyped_command_suggests_the_real_one(project):
+    result = run("aply", cwd=project, expect_ok=False)
+    output = result.stdout + result.stderr
+
+    assert result.returncode != 0
+    assert "apply" in output
+
+
+def test_severity_on_a_pack_that_is_off_says_it_has_no_effect(project):
+    run("init", cwd=project)
+    result = run("severity", "corporate-speak", "ban", cwd=project)
+
+    assert "no effect" in result.stdout
