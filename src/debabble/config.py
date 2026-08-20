@@ -207,9 +207,7 @@ def load_config(project_root: Path | None, *, scope: str = "project") -> Config:
     return global_config
 
 
-# --------------------------------------------------------------------------
 # Turning configuration into the rules that are actually in effect
-# --------------------------------------------------------------------------
 
 
 def known_ids(packs) -> set[str]:

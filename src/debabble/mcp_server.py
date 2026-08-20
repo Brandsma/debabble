@@ -44,9 +44,7 @@ except ImportError:  # pragma: no cover - exercised only without the extra
 mcp = MCPServer("debabble")
 
 
-# ---------------------------------------------------------------------------
 # Finding the project a request is about
-# ---------------------------------------------------------------------------
 
 
 def resolve_project(project_dir: str | None = None) -> Path | None:
@@ -79,9 +77,7 @@ def load_rules(project_dir: str | None = None) -> tuple[RuleSet, Config, Path | 
     return resolve_ruleset(config, project_root=root), config, root
 
 
-# ---------------------------------------------------------------------------
 # Tools
-# ---------------------------------------------------------------------------
 
 
 @mcp.tool(
@@ -211,9 +207,7 @@ def list_rules(
     }
 
 
-# ---------------------------------------------------------------------------
 # A prompt and a resource
-# ---------------------------------------------------------------------------
 
 
 @mcp.prompt(description="Rewrite text so it follows the debabble rules.")

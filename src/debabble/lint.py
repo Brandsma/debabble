@@ -84,9 +84,7 @@ class Finding:
         }
 
 
-# ---------------------------------------------------------------------------
 # Working out what kind of text we are looking at
-# ---------------------------------------------------------------------------
 
 
 def registers_for_path(path: Path) -> tuple[str, ...]:
@@ -101,9 +99,7 @@ def registers_for_path(path: Path) -> tuple[str, ...]:
     return ()
 
 
-# ---------------------------------------------------------------------------
 # Masking: replacing text a rule should not see, without moving anything
-# ---------------------------------------------------------------------------
 
 
 def blank_text(text: str) -> str:
@@ -299,9 +295,7 @@ def split_source(text: str, suffix: str) -> tuple[str, str]:
     return "".join(comment_chars), "".join(code_chars)
 
 
-# ---------------------------------------------------------------------------
 # Compiling rules into patterns
-# ---------------------------------------------------------------------------
 
 
 # Word lists and phrases are written with a typewriter apostrophe, but models
@@ -356,9 +350,7 @@ def checkable(ruleset: RuleSet, register: str) -> tuple[tuple[Rule, re.Pattern],
     )
 
 
-# ---------------------------------------------------------------------------
 # Segmenting, for density rules
-# ---------------------------------------------------------------------------
 
 
 def _segments(text: str, unit: str) -> list[tuple[int, int]]:
@@ -397,9 +389,7 @@ def _allowance(rule: Rule, text: str) -> int:
     return max(rule.max, round(rule.max * words / rule.per_words))
 
 
-# ---------------------------------------------------------------------------
 # Linting
-# ---------------------------------------------------------------------------
 
 
 def _line_starts(text: str) -> list[int]:

@@ -108,7 +108,7 @@ debabble rules          # every rule in effect
 debabble rules vocabulary.hype-verbs     # one rule in full
 ```
 
-Rules come at two severities. A **ban** is absolute: never do this. A **flag** is
+Rules come at two severities. A `ban` is absolute: never do this. A `flag` is
 density guidance: fine once, a tell in clusters. The split matters, because
 banning ordinary words teaches a model to write around the ban instead of
 writing plainly.
@@ -181,23 +181,23 @@ the server somewhere other than the project.
 The shipped rules are a starting point. Three ways to change them, shortest
 first.
 
-**Ban a word.**
+To ban a word:
 
 ```bash
 debabble avoid supercharge
 ```
 
-**Change how hard a rule pushes**, or switch it off. This works on a single rule
-or a whole pack:
+To change how hard a rule pushes, or switch it off entirely. This works on a
+single rule or on a whole pack:
 
 ```bash
 debabble severity vocabulary.intensity-cluster off
 debabble severity corporate-speak ban
 ```
 
-**Edit a rule outright.** `debabble rules <id>` prints the rule as TOML in
-exactly the format the config accepts, so you can paste it into `debabble.toml`
-and change anything: the wording, the word list, the examples, the severity.
+To edit a rule outright, `debabble rules <id>` prints it as TOML in exactly the
+format the config accepts, so you can paste it into `debabble.toml` and change
+anything: the wording, the word list, the examples, the severity.
 
 ```toml
 [[rules]]

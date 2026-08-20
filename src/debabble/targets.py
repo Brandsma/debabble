@@ -99,9 +99,7 @@ def _hermes_home() -> Path:
     return paths.home() / ".hermes"
 
 
-# ---------------------------------------------------------------------------
 # Individual tools
-# ---------------------------------------------------------------------------
 
 
 def _claude_code(scope: str, root: Path | None) -> list[TargetFile]:
@@ -215,9 +213,7 @@ def _kiro(scope: str, root: Path | None) -> list[TargetFile]:
     return [TargetFile(path=base / "steering" / "debabble.md")]
 
 
-# ---------------------------------------------------------------------------
 # The registry
-# ---------------------------------------------------------------------------
 
 TARGETS: tuple[Target, ...] = (
     Target(
