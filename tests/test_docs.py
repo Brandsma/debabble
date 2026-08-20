@@ -28,6 +28,22 @@ def known_rule_ids() -> set[str]:
     return {r.id for p in load_all_packs([]) for r in p.rules}
 
 
+def commands_shown_in(text: str) -> set[str]:
+    """Commands the document actually shows being run.
+
+    Only code counts: prose like "debabble keeps a set of rules" is a sentence,
+    not an invocation.
+    """
+    code = re.findall(r"```[a-z]*\n(.*?)```", text, re.DOTALL) + re.findall(r"`([^`\n]+)`", text)
+    found = set()
+    for snippet in code:
+        for line in snippet.splitlines():
+            match = re.match(r"\s*(?:uvx?\s+\S+\s+)?debabble\s+([a-z][a-z-]*)", line)
+            if match:
+                found.add(match.group(1))
+    return found
+
+
 def test_starter_config_is_valid():
     """`debabble init` must write a file the tool can read back."""
     config = parse_config(tomllib.loads(_STARTER_CONFIG))
@@ -101,3 +117,27 @@ def test_every_ban_rule_explains_itself():
             if rule.severity is Severity.BAN:
                 assert rule.instruction.strip(), rule.id
                 assert rule.title, f"{rule.id} has no title to show in rendered output"
+
+
+def test_readme_only_names_real_commands():
+    """Every `debabble <command>` the README mentions must exist."""
+    from debabble.cli import app
+
+    known = {name for name in app if not name.startswith("-")}
+    mentioned = commands_shown_in(README)
+
+    unknown = mentioned - known
+    assert not unknown, (
+        f"README names commands that do not exist: {sorted(unknown)}; real ones: {sorted(known)}"
+    )
+
+
+def test_every_command_is_mentioned_in_the_readme():
+    """A command nobody documents is a command nobody finds."""
+    from debabble.cli import app
+
+    known = {name for name in app if not name.startswith("-")}
+    mentioned = commands_shown_in(README)
+
+    undocumented = known - mentioned
+    assert not undocumented, f"commands missing from the README: {sorted(undocumented)}"

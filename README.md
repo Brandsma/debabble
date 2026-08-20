@@ -71,7 +71,7 @@ against the config and takes them back out.
 | --- | --- | --- |
 | `claude-code` | `.claude/rules/debabble.md` | `~/.claude/rules/debabble.md` |
 | `claude-command` | `.claude/commands/debabble.md` | `~/.claude/commands/debabble.md` |
-| `cursor` | `.cursor/rules/debabble.mdc` | kept in Cursor's settings; use `render` |
+| `cursor` | `.cursor/rules/debabble.mdc` | kept in Cursor's settings; see below |
 | `agents-md` | `AGENTS.md` | `~/.codex/AGENTS.md` |
 | `copilot` | `.github/instructions/debabble.instructions.md` | covered by `claude-code` |
 | `windsurf` | `.windsurf/rules/debabble.md` | `~/.codeium/windsurf/memories/global_rules.md` |
@@ -89,6 +89,16 @@ markers and replaces only what is between them.
 
 `claude-command` is different from the rest: instead of rules that shape new
 writing, it installs a `/debabble` command that rewrites text you already have.
+
+Some tools keep their user-wide rules in application settings rather than in a
+file. For those, print the rules and paste them in:
+
+```bash
+debabble render --target cursor
+```
+
+`render` writes to standard output and never touches a file, so it is also the
+way to pipe the rules somewhere debabble does not know about.
 
 ## The rules
 
