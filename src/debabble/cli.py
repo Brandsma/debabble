@@ -15,7 +15,7 @@ from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
-from . import install, paths
+from . import __version__, install, paths
 from .config import STYLES, Config, known_ids, load_config, resolve_ruleset
 from .errors import ConfigError, DebabbleError
 from .models import REGISTERS, Severity
@@ -31,7 +31,7 @@ err_console = Console(stderr=True, soft_wrap=True)
 app = App(
     name="debabble",
     help="Install no-AI-speak writing rules into your AI coding tools.",
-    version="0.1.0",
+    version=__version__,
 )
 
 # Shared option types, so every command spells them the same way.

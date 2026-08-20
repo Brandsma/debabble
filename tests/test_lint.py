@@ -361,11 +361,19 @@ def test_a_quoted_mention_inside_a_comment_is_excused(ruleset, tmp_path):
 
 
 def test_the_project_passes_its_own_lint():
-    """debabble must not break the rules it ships."""
+    """debabble must not break the rules it ships.
+
+    This is a property of the source repository, not of the package. A source
+    distribution carries the tests but not the project's own debabble.toml, so
+    without its excludes the rule packs themselves would be read as prose.
+    """
     from debabble import install
     from debabble.config import load_config
 
     root = Path(__file__).resolve().parents[1]
+    if not (root / "debabble.toml").is_file():
+        pytest.skip("not running from the source repository")
+
     config = load_config(root, scope="project")
     ruleset = resolve_ruleset(config, project_root=root)
     exclude = install.lint_excludes(config, scope="project", project_root=root)

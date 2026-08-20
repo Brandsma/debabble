@@ -171,3 +171,13 @@ def test_every_command_is_mentioned_in_the_readme():
 
     undocumented = known - mentioned
     assert not undocumented, f"commands missing from the README: {sorted(undocumented)}"
+
+
+def test_the_reported_version_matches_the_packaging_metadata():
+    """`debabble --version` must not be able to drift from pyproject.toml."""
+    import tomllib as _tomllib
+
+    from debabble import __version__
+
+    declared = _tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert __version__ == declared["project"]["version"]

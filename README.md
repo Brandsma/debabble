@@ -10,6 +10,9 @@ debabble keeps a curated set of rules against those habits and writes them into
 the instruction files your tools already read, so the rules shape what gets
 generated rather than being cleaned up afterwards.
 
+Note that this helps with the annoyance of recognizing AI generated text everywhere,
+but it is still not a solution to create any true depth (or [thickness](https://www.experimental-history.com/p/i-like-em-thick)).
+
 ## Install
 
 ```bash
@@ -67,20 +70,20 @@ debabble apply --target claude-code --target cursor --target agents-md --save
 now but are not remembered, and a later plain `debabble apply` reconciles
 against the config and takes them back out.
 
-| Target | Project file | User-wide file |
-| --- | --- | --- |
-| `claude-code` | `.claude/rules/debabble.md` | `~/.claude/rules/debabble.md` |
-| `claude-command` | `.claude/commands/debabble.md` | `~/.claude/commands/debabble.md` |
-| `cursor` | `.cursor/rules/debabble.mdc` | kept in Cursor's settings; see below |
-| `agents-md` | `AGENTS.md` | `~/.codex/AGENTS.md` |
-| `copilot` | `.github/instructions/debabble.instructions.md` | covered by `claude-code` |
-| `windsurf` | `.windsurf/rules/debabble.md` | `~/.codeium/windsurf/memories/global_rules.md` |
-| `gemini` | `GEMINI.md` | `~/.gemini/GEMINI.md` |
-| `hermes` | `.hermes.md` | `SOUL.md` in your Hermes home |
-| `cline` | `.clinerules/debabble.md` | `~/Documents/Cline/Rules/debabble.md` |
-| `roo` | `.roo/rules/debabble.md` | `~/.roo/rules/debabble.md` |
-| `amazon-q` | `.amazonq/rules/debabble.md` | not available |
-| `kiro` | `.kiro/steering/debabble.md` | `~/.kiro/steering/debabble.md` |
+| Target           | Project file                                    | User-wide file                                 |
+| ---------------- | ----------------------------------------------- | ---------------------------------------------- |
+| `claude-code`    | `.claude/rules/debabble.md`                     | `~/.claude/rules/debabble.md`                  |
+| `claude-command` | `.claude/commands/debabble.md`                  | `~/.claude/commands/debabble.md`               |
+| `cursor`         | `.cursor/rules/debabble.mdc`                    | kept in Cursor's settings; see below           |
+| `agents-md`      | `AGENTS.md`                                     | `~/.codex/AGENTS.md`                           |
+| `copilot`        | `.github/instructions/debabble.instructions.md` | covered by `claude-code`                       |
+| `windsurf`       | `.windsurf/rules/debabble.md`                   | `~/.codeium/windsurf/memories/global_rules.md` |
+| `gemini`         | `GEMINI.md`                                     | `~/.gemini/GEMINI.md`                          |
+| `hermes`         | `.hermes.md`                                    | `SOUL.md` in your Hermes home                  |
+| `cline`          | `.clinerules/debabble.md`                       | `~/Documents/Cline/Rules/debabble.md`          |
+| `roo`            | `.roo/rules/debabble.md`                        | `~/.roo/rules/debabble.md`                     |
+| `amazon-q`       | `.amazonq/rules/debabble.md`                    | not available                                  |
+| `kiro`           | `.kiro/steering/debabble.md`                    | `~/.kiro/steering/debabble.md`                 |
 
 Where a tool reads a directory of rule files, debabble owns one file in it and
 nothing you wrote is at risk. Where a tool reads a single file you also write in
@@ -118,24 +121,24 @@ writing plainly.
 An instruction file is read on every request, and it lands in a system message
 that is usually long already. So the default is four packs, not ten:
 
-| | Packs | Rules | Cost per request |
-| --- | --- | --- | --- |
-| Default | `chat-artifacts`, `vocabulary`, `phrases`, `punctuation` | 32 | about 11 kB, near 2k tokens |
-| Everything | all ten | 85 | about 25 kB, near 6k tokens |
+|            | Packs                                                    | Rules | Cost per request            |
+| ---------- | -------------------------------------------------------- | ----- | --------------------------- |
+| Default    | `chat-artifacts`, `vocabulary`, `phrases`, `punctuation` | 32    | about 11 kB, near 2k tokens |
+| Everything | all ten                                                  | 85    | about 25 kB, near 6k tokens |
 
 Those four cover the complaints people actually make: `You're absolutely right`,
 `delve` and `seamless`, `it is important to note that`, and emoji everywhere.
 
 The rest are off because they earn their place only in some projects:
 
-| Pack | Turn it on when |
-| --- | --- |
-| `structure` | you want the shape-level tells too: `not just X, but Y`, reflexive triads, every section closing with a summary |
-| `code-comments` | the tool writes code, and you are tired of comments that restate the line below them |
-| `commits` | the tool writes commit messages or pull request descriptions |
-| `docs-readme` | the tool writes READMEs, and you do not want "blazingly fast" or emoji headings |
-| `minimal-docs` | you want it to stop creating documentation nobody asked for |
-| `corporate-speak` | "circle back", "low-hanging fruit", "move the needle" |
+| Pack              | Turn it on when                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| `structure`       | you want the shape-level tells too: `not just X, but Y`, reflexive triads, every section closing with a summary |
+| `code-comments`   | the tool writes code, and you are tired of comments that restate the line below them                            |
+| `commits`         | the tool writes commit messages or pull request descriptions                                                    |
+| `docs-readme`     | the tool writes READMEs, and you do not want "blazingly fast" or emoji headings                                 |
+| `minimal-docs`    | you want it to stop creating documentation nobody asked for                                                     |
+| `corporate-speak` | "circle back", "low-hanging fruit", "move the needle"                                                           |
 
 Add what you need and keep it:
 
