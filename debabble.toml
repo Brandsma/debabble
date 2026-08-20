@@ -37,12 +37,10 @@ allow = []
 
 [lint]
 # `debabble lint` skips these. Both hold AI-speak as data rather than as
-# writing: the research notes quote it, and the packs list it.
+# writing: the packs list it, and the tests quote it as specimens.
 exclude = [
-    "research/*",
     "src/debabble/data/packs/*",
     "tests/*",
-    "PLAN.md",
 ]
 
 # Edit any shipped rule by id, or define a new one. `debabble rules <id>`

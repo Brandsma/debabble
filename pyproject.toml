@@ -52,8 +52,7 @@ build-backend = "hatchling.build"
 packages = ["src/debabble"]
 
 [tool.hatch.build.targets.sdist]
-# Ship what someone needs to build and check the package. Development
-# material stays in the repository: research/ alone is 164 kB of notes.
+# Ship what someone needs to build and check the package, and nothing else.
 include = [
     "src/debabble",
     "tests",

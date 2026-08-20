@@ -1,7 +1,8 @@
 name: Release
 
-# Publishing happens only when a version tag is pushed, so a merge to main
-# never ships anything by itself.
+# Publishing uses PyPI trusted publishing, so there is no API token here.
+# It happens only when a version tag is pushed, so a merge to main never
+# ships anything by itself.
 on:
   push:
     tags: ["v*"]

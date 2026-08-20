@@ -177,7 +177,7 @@ To skip files entirely, list globs under `[lint]`:
 
 ```toml
 [lint]
-exclude = ["research/*", "CHANGELOG.md"]
+exclude = ["vendor/*", "CHANGELOG.md"]
 ```
 
 Files debabble itself wrote are skipped automatically; they contain the rules,
@@ -289,8 +289,7 @@ Every pack carries its own `references`, which `debabble rules <id>` prints
 along with the reasoning for a rule. The sources include Wikipedia's "Signs of
 AI writing", the Kobak et al. study of excess vocabulary in scientific
 abstracts, and the Antislop paper's measurements of how much more often some
-phrases appear in model output than in human writing. The full notes behind
-the packs live in `research/` in the repository.
+phrases appear in model output than in human writing.
 
 Vocabulary tells drift between model generations, so vocabulary rules carry an
 `era` tag and the packs are versioned separately from the tool.
