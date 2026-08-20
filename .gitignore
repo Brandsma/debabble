@@ -20,3 +20,6 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Scratch output from ad-hoc checks
+*.out

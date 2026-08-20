@@ -51,6 +51,18 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/debabble"]
 
+[tool.hatch.build.targets.sdist]
+# Ship what someone needs to build and check the package. Development
+# material stays in the repository: research/ alone is 164 kB of notes.
+include = [
+    "src/debabble",
+    "tests",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    "uv.lock",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

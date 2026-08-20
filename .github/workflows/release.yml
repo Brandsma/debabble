@@ -1,0 +1,75 @@
+name: Release
+
+# Publishing happens only when a version tag is pushed, so a merge to main
+# never ships anything by itself.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      # Read the version with tomllib rather than a uv subcommand, so this does
+      # not depend on which uv version the runner installed.
+      - name: Check the tag matches the version in pyproject.toml
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared="$(python -c 'import tomllib,pathlib;print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          if [ "$tagged" != "$declared" ]; then
+            echo "Tag is $tagged but pyproject.toml says $declared." >&2
+            exit 1
+          fi
+
+      - name: Test before shipping
+        run: |
+          uv sync --locked --all-extras --dev
+          uv run ruff check
+          uv run ruff format --check
+          uv run pytest
+          uv run debabble lint .
+
+      # --no-sources proves the package builds without the local workspace.
+      - name: Build
+        run: uv build --no-sources
+
+      - name: Check the metadata PyPI will read
+        run: uv run --no-project --with twine twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # The environment is half of what PyPI matches a trusted publisher on, and
+    # it is where a required reviewer can be added to gate a release.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/debabble
+    permissions:
+      # Mints the short-lived OIDC token PyPI trades for an upload token.
+      # There is no API token in this repository and none is needed.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always

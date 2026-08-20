@@ -255,10 +255,12 @@ gitignored automatically.
 ## Where the rules come from
 
 The rules are written from published research rather than from taste alone.
-`research/` holds the source material, including Wikipedia's "Signs of AI
-writing", the Kobak et al. study of excess vocabulary in scientific abstracts,
-and the Antislop paper's measurements of how much more often some phrases appear
-in model output than in human writing. Each pack cites its references.
+Every pack carries its own `references`, which `debabble rules <id>` prints
+along with the reasoning for a rule. The sources include Wikipedia's "Signs of
+AI writing", the Kobak et al. study of excess vocabulary in scientific
+abstracts, and the Antislop paper's measurements of how much more often some
+phrases appear in model output than in human writing. The full notes behind
+the packs live in `research/` in the repository.
 
 Vocabulary tells drift between model generations, so vocabulary rules carry an
 `era` tag and the packs are versioned separately from the tool.
