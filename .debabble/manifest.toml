@@ -12,18 +12,18 @@ target = "claude-code"
 path = ".claude/rules/debabble.md"
 strategy = "own"
 created = false
-hash = "0a53265592244701"
+hash = "829df195e320cff9"
 
 [[files]]
 target = "agents-md"
 path = "AGENTS.md"
 strategy = "block"
 created = false
-hash = "579330fdbfda3a4e"
+hash = "7e6ea262cc466cdf"
 
 [[files]]
 target = "claude-command"
 path = ".claude/commands/debabble.md"
 strategy = "own"
 created = false
-hash = "17457d6bf6ef5837"
+hash = "43ee7904beceb751"

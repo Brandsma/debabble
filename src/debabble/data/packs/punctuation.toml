@@ -69,7 +69,7 @@ registers = ["prose", "docs", "comments", "commits", "code"]
 scope = "any"
 # Emoji blocks, plus U+FE0F so that a plain typographic check mark passes and an
 # emoji-presentation one does not.
-pattern = '[\U0001F1E6-\U0001F1FF\U0001F300-\U0001FAFF\U00002600-\U000026FF\U00002700-\U00002712\U00002719-\U000027BF\U00002B00-\U00002BFF\U0000FE0F]'
+pattern = '[\U0001F000-\U0001FAFF]|[\u2190-\u2BFF\u3030\u303D]\uFE0F|[\u2705\u274C\u274E\u2757\u2753\u2B50\u2B55\u2728\u2795-\u2797\u26A0\u26A1\u2714\u2716\u2733\u2734\u2B06\u2B07]'
 instruction = "Use no emoji in headings, bullets, prose, commit subjects, or console output. If a line needs weight, the words carry it."
 why = "Emoji used as formatting is borrowed warmth: it decorates the layout without adding information, and it is one of the loudest signals of generated text."
 wrong = "## 🚀 Getting started"

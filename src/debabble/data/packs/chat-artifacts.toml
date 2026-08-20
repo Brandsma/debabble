@@ -63,15 +63,11 @@ right = "The parser handles this in two passes."
 id = "pseudo-empathy"
 title = "No performed understanding"
 severity = "ban"
-kind = "phrase"
+kind = "regex"
 registers = ["prose", "docs", "comments", "commits"]
-phrases = [
-    "I completely understand your concern",
-    "I understand your frustration",
-    "I can see why you'd think",
-    "I can see why you might",
-    "that must be frustrating",
-]
+# A list of phrases cannot say "with or without the intensifier", and the
+# commonest form of the tic falls between the entries.
+pattern = "(?i)I (?:completely |totally |really |absolutely )?understand (?:your|how|that) (?:concern|frustration|frustrating|difficult|hard)|I can see why you(?:'|’)?d think|I can see why you might|that must be (?:frustrating|difficult)"
 instruction = "Do not narrate empathy. Fix the problem or describe it accurately."
 wrong = "I completely understand your frustration with this error."
 right = "This error means the config file was not found."
@@ -87,15 +83,32 @@ phrases = [
     "hope that helps",
     "let me know if you",
     "let me know if there's anything",
-    "feel free to reach out",
-    "feel free to ask",
     "would you like me to",
-    "if you have any questions",
-    "don't hesitate to",
 ]
 instruction = "Do not end with an offer of further help or an invitation to ask questions. Stop when the content stops."
 wrong = "That covers the setup. Let me know if you have any questions!"
 right = "That covers the setup."
+
+# The same sentiment written by a human in a contributing section is ordinary
+# community-docs language, so the phrases that real projects use are flagged
+# rather than banned.
+[[rules]]
+id = "invitations"
+title = "No open invitations in a document"
+severity = "flag"
+kind = "phrase"
+registers = ["prose", "docs"]
+max = 1
+unit = "document"
+phrases = [
+    "feel free to reach out",
+    "feel free to ask",
+    "if you have any questions",
+    "don't hesitate to",
+]
+instruction = "Close a document on its last real point. An invitation to get in touch belongs in one place, not at the end of every section."
+wrong = "That covers the API. Feel free to reach out with any questions."
+right = "That covers the API."
 
 [[rules]]
 id = "placeholders"
@@ -103,7 +116,7 @@ title = "No unfilled placeholders"
 severity = "ban"
 kind = "regex"
 registers = ["prose", "docs", "comments", "commits"]
-pattern = '\[(?:Your Name|Your Company|Insert [^\]]{1,40}|INSERT[^\]]{0,40}|Name Here|Date Here|X{2,})\]'
+pattern = '\[(?:Your Name|Your Company|Insert [^\]]{1,40}|INSERT[^\]]{0,40}|Name Here|Date Here)\]'
 instruction = "Never ship a bracketed placeholder. Fill it in, or leave the sentence out."
 wrong = "Best regards, [Your Name]"
 right = "Best regards, Sam"

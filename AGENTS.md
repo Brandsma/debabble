@@ -19,9 +19,8 @@ what you wrote before you finish.
 - **No praise for the request.** Do not open with praise for the question or agreement with the reader. Start with the answer.
   Never use: great question, excellent question, that's a great point, excellent point, you're absolutely right, you are absolutely right, you're right to, what a great idea, happy to help.
 - **No performed understanding.** Do not narrate empathy. Fix the problem or describe it accurately.
-  Never use: I completely understand your concern, I understand your frustration, I can see why you'd think, I can see why you might, that must be frustrating.
 - **No trailing offers of help.** Do not end with an offer of further help or an invitation to ask questions. Stop when the content stops.
-  Never use: I hope this helps, hope that helps, let me know if you, let me know if there's anything, feel free to reach out, feel free to ask, would you like me to, if you have any questions, don't hesitate to.
+  Never use: I hope this helps, hope that helps, let me know if you, let me know if there's anything, would you like me to.
 - **No unfilled placeholders.** Never ship a bracketed placeholder. Fill it in, or leave the sentence out.
 - **No tool or citation markup.** Strip search, citation, and file-upload markup before the text is saved. None of it is readable content.
 - **No collaborative asides in documents.** A document is not a conversation. Drop asides that address the reader as a companion mid-task.
@@ -65,7 +64,7 @@ what you wrote before you finish.
 - **No emoji in headings.** Write section headings as plain text. No emoji prefix, no decorative symbol.
 - **No emoji feature bullets.** Begin a list item with the word, not a symbol. A feature list earns its place by saying what the feature does for the reader.
 - **No unsupported superlatives.** Replace a speed or quality claim with the measurement that proves it, or cut the claim. Where there is no benchmark, describe what the code does instead.
-  Never use: blazingly fast, blazing fast, blazing-fast, lightning fast, lightning-fast, insanely fast, buttery smooth, rock solid, rock-solid, bulletproof, battle-tested, battle tested, production-ready, production ready, enterprise-grade, enterprise grade, military-grade, industry-leading, best-in-class, best in class, world-class, world class, next-generation, next generation, supercharge, turbocharge, unparalleled, powerful.
+  Never use: blazingly fast, blazing fast, blazing-fast, lightning fast, lightning-fast, insanely fast, buttery smooth, rock solid, rock-solid, bulletproof, battle-tested, battle tested, production-ready, production ready, enterprise-grade, enterprise grade, military-grade, industry-leading, best-in-class, best in class, world-class, world class, next-generation, next generation, supercharge, turbocharge.
 - **No self-advertising headings.** Name the subject in a heading and stop. Let the section prove its own coverage.
   Never use: comprehensive, comprehensively, ultimate, definitive, exhaustive, all-in-one.
 - **Lowercase kebab-case filenames.** Name documentation files in lowercase kebab-case. Reserve capitals for README.md and the conventional all-caps files a repo already keeps, such as LICENSE and CHANGELOG.md; source files follow their language's naming convention.
@@ -75,6 +74,8 @@ what you wrote before you finish.
 
 Each of these is fine once. They read as machine writing when they cluster, so keep them rare and deliberate.
 
+- **No open invitations in a document.** Close a document on its last real point. An invitation to get in touch belongs in one place, not at the end of every section.
+  Watch for: feel free to reach out, feel free to ask, if you have any questions, don't hesitate to.
 - **One intensity word per paragraph.** Use at most one intensity word per paragraph, and prefer the fact that made you reach for it: 'crucial' becomes 'required by the scheduler', 'robust' becomes 'survives a node restart'.
   Watch for: crucial, crucially, vital, vitally, essential, robust, robustly, comprehensive, comprehensively, sophisticated, innovative, cutting-edge, state-of-the-art, scalable, compelling, unprecedented, nuanced, powerful, valuable, notable, renowned, profound, enduring, daunting, poised, tailored, insights, excels, streamline, streamlines, streamlined, streamlining, empower, empowers, empowered, empowering, facilitate, facilitates, facilitated, facilitating, and 22 more.
 - **One significance verb per paragraph.** Report the change, not its significance: 'enhances performance' becomes '18% fewer allocations'. Keep at most one of these verbs per paragraph.

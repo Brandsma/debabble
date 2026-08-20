@@ -291,6 +291,16 @@ def split_source(text: str, suffix: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 
+# Word lists and phrases are written with a typewriter apostrophe, but models
+# emit the typographic one constantly. Without this, "You're absolutely right"
+# is caught and "You’re absolutely right" is not.
+_APOSTROPHES = "['’ʼ‘]"
+
+
+def _apostrophe_tolerant(escaped: str) -> str:
+    return escaped.replace(r"\'", _APOSTROPHES).replace("'", _APOSTROPHES)
+
+
 def compile_rule(rule: Rule) -> re.Pattern | None:
     """The regex a rule matches with, or None if it is not machine-checkable.
 
@@ -302,12 +312,14 @@ def compile_rule(rule: Rule) -> re.Pattern | None:
     if rule.kind == "regex" and rule.pattern:
         return re.compile(rule.pattern, re.MULTILINE)
     if rule.kind == "wordlist" and rule.words:
-        alternatives = "|".join(re.escape(w) for w in sorted(rule.words, key=len, reverse=True))
+        alternatives = "|".join(
+            _apostrophe_tolerant(re.escape(w)) for w in sorted(rule.words, key=len, reverse=True)
+        )
         return re.compile(rf"\b(?:{alternatives})\b", re.IGNORECASE)
     if rule.kind == "phrase" and rule.phrases:
         # Allow any run of whitespace, including a line break, inside a phrase.
         alternatives = "|".join(
-            r"\s+".join(re.escape(part) for part in phrase.split())
+            r"\s+".join(_apostrophe_tolerant(re.escape(part)) for part in phrase.split())
             for phrase in sorted(rule.phrases, key=len, reverse=True)
         )
         return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)", re.IGNORECASE)

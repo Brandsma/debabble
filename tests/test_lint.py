@@ -427,3 +427,92 @@ def test_a_hash_inside_a_string_does_not_start_a_comment(ruleset, tmp_path):
 
     assert "the background" in comments
     assert "ffffff" not in comments, "the string was mistaken for the comment"
+
+
+# ---------------------------------------------------------------------------
+# Rule quality: things that used to slip through or fire wrongly
+# ---------------------------------------------------------------------------
+
+
+def test_a_typographic_apostrophe_does_not_hide_a_banned_phrase(ruleset):
+    """Models emit the curly apostrophe constantly; the ban lists use the straight one."""
+    straight = "You're absolutely right, the parser runs twice."
+    curly = "You’re absolutely right, the parser runs twice."
+
+    assert "chat-artifacts.sycophancy" in ids(lint_text(straight, ruleset, register="prose"))
+    assert "chat-artifacts.sycophancy" in ids(lint_text(curly, ruleset, register="prose"))
+
+
+def test_every_rule_catches_the_example_it_ships_as_wrong(ruleset):
+    """A rule whose own bad example slips past it is not saying what it means."""
+    missed = []
+    for rule in ruleset.active_rules:
+        if not rule.wrong or not rule.delivered_via("linter") or rule.max is not None:
+            continue
+        pattern = compile_rule(rule)
+        if pattern is not None and not pattern.search(rule.wrong):
+            missed.append(rule.id)
+    assert not missed, f"rules that do not match their own `wrong` example: {missed}"
+
+
+def test_no_rule_fires_on_the_example_it_ships_as_right(ruleset):
+    """And the good example must be clean, or the advice is unfollowable."""
+    fired = []
+    for rule in ruleset.active_rules:
+        if not rule.right or not rule.delivered_via("linter"):
+            continue
+        pattern = compile_rule(rule)
+        if pattern is not None and pattern.search(rule.right):
+            fired.append(rule.id)
+    assert not fired, f"rules that fire on their own `right` example: {fired}"
+
+
+def test_bracketed_markers_in_code_are_not_placeholders(ruleset, tmp_path):
+    """[XX] is a long-standing marker convention in source comments."""
+    path = tmp_path / "sample.py"
+    path.write_text("# [XX] Normalize with respect to os.path.pardir?\nx = 1\n", encoding="utf-8")
+    assert "chat-artifacts.placeholders" not in ids(lint_file(path, ruleset))
+
+
+def test_a_comment_that_is_disabled_code_is_not_a_restatement(ruleset, tmp_path):
+    path = tmp_path / "sample.py"
+    path.write_text("#     return None\n# print function\nx = 1\n", encoding="utf-8")
+    assert "code-comments.restating-comments" not in ids(lint_file(path, ruleset))
+
+
+def test_one_invitation_is_fine_but_a_habit_is_not(ruleset):
+    one = "Feel free to reach out to the maintainers.\n"
+    many = (
+        "Feel free to reach out.\n\nMore.\n\nDo not hesitate to ask.\n\n"
+        "If you have any questions, feel free to ask.\n"
+    )
+    assert lint_text(one, ruleset, register="docs") == []
+    assert "chat-artifacts.invitations" in ids(lint_text(many, ruleset, register="docs"))
+
+
+def test_an_ordinary_adjective_is_not_a_marketing_claim(ruleset):
+    """ "powerful" in a factual sentence must not break somebody's build."""
+    text = "WebRTC is powerful but some networks block direct connections.\n"
+    banned = [f for f in lint_text(text, ruleset, register="docs") if f.severity is Severity.BAN]
+    assert banned == [], f"banned an ordinary sentence: {[(f.rule_id, f.matched) for f in banned]}"
+
+
+def test_a_real_marketing_claim_is_still_banned(ruleset):
+    text = "A blazingly fast, production-ready parser.\n"
+    assert "docs-readme.marketing-superlatives" in ids(lint_text(text, ruleset, register="docs"))
+
+
+def test_no_term_is_both_banned_and_flagged_in_the_same_register(ruleset):
+    """One word carrying two severities means the stricter one silently wins."""
+    from collections import defaultdict
+
+    seen: dict[str, set] = defaultdict(set)
+    for rule in ruleset.active_rules:
+        if rule.scope != "any":
+            continue  # a heading-scoped rule and a body one do not collide
+        for term in rule.terms:
+            for register in rule.registers:
+                seen[(term.lower(), register)].add(rule.severity)
+
+    conflicting = sorted(k for k, v in seen.items() if len(v) > 1)
+    assert not conflicting, f"terms with two severities at once: {conflicting}"

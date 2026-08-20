@@ -23,7 +23,7 @@ severity = "ban"
 kind = "regex"
 registers = ["docs"]
 scope = "heading"
-pattern = '[ℹ☀-➿⬀-⯿\U0001F000-\U0001FAFF]'
+pattern = '[\U0001F000-\U0001FAFF]|[\u2190-\u2BFF\u3030\u303D]\uFE0F|[\u2705\u274C\u274E\u2757\u2753\u2B50\u2B55\u2728\u2795-\u2797\u26A0\u26A1\u2714\u2716\u2733\u2734\u2B06\u2B07]'
 instruction = "Write section headings as plain text. No emoji prefix, no decorative symbol."
 why = "A pictogram on every H2 is the most recognisable shape a generated README has."
 wrong = "## 🚀 Getting Started"
@@ -36,7 +36,7 @@ severity = "ban"
 kind = "regex"
 registers = ["docs"]
 scope = "body"
-pattern = '(?m)^[ \t]*(?:[-*+]|\d+[.)])[ \t]+[*_]*[ \t]*[ℹ☀-➿⬀-⯿\U0001F000-\U0001FAFF]'
+pattern = '(?m)^[ 	]*(?:[-*+]|\d+[.)])[ 	]+[*_]*[ 	]*(?:[\U0001F000-\U0001FAFF]|[\u2190-\u2BFF\u3030\u303D]\uFE0F|[\u2705\u274C\u274E\u2757\u2753\u2B50\u2B55\u2728\u2795-\u2797\u26A0\u26A1\u2714\u2716\u2733\u2734\u2B06\u2B07])'
 instruction = "Begin a list item with the word, not a symbol. A feature list earns its place by saying what the feature does for the reader."
 why = "Rocket and sparkle bullets are borrowed warmth: they decorate a claim instead of supporting it."
 wrong = "- ⚡ Lightning-fast startup"
@@ -75,8 +75,6 @@ phrases = [
     "next generation",
     "supercharge",
     "turbocharge",
-    "unparalleled",
-    "powerful",
 ]
 instruction = "Replace a speed or quality claim with the measurement that proves it, or cut the claim. Where there is no benchmark, describe what the code does instead."
 why = "A superlative costs nothing to write and carries no information; the number it stands in for does the whole job."

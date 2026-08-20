@@ -25,7 +25,10 @@ title = "Comment the why, not the line"
 severity = "ban"
 kind = "regex"
 registers = ["comments"]
-pattern = '(?i)^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))[ \t]+(?:(?:the|a|an|all|our|new)[ \t]+)?\w+(?:[ \t]+\w+)?[ \t]*[.:;]?[ \t]*(?:\*/)?[ \t]*$'
+# Two extra conditions keep this off shapes it was never aimed at: a negative
+# lookahead for lines that read as disabled code, and a requirement of at least
+# two words after the verb, since '# print function' is a label, not a restatement.
+pattern = '(?i)^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*(?!(?:return|import|from|def|class|if|for|while|with|try|except|print)\b[^\n]*[():=])(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))[ \t]+(?:(?:the|a|an|all|our|new)[ \t]+)?\w+(?:[ \t]+\w+)+[ \t]*[.:;]?[ \t]*(?:\*/)?[ \t]*$'
 instruction = "Write a comment only where the code would surprise a reader, and make it say why. Never restate the line below it."
 why = "A comment that repeats the code adds a second thing to keep in sync and tells the reader nothing the line did not already say."
 wrong = "# Loop through the items"
@@ -125,7 +128,7 @@ kind = "regex"
 registers = ["code"]
 # Ranges are written as escapes so the pack file itself stays ASCII. The gap at
 # U+2713..U+2717 keeps the plain check and cross marks that human CLIs print.
-pattern = '[☀-⛿✀-✒✘-➿⬀-⯿️\U0001F000-\U0001FAFF]'
+pattern = '[\U0001F000-\U0001FAFF]|[\u2190-\u2BFF\u3030\u303D]\uFE0F|[\u2705\u274C\u274E\u2757\u2753\u2B50\u2B55\u2728\u2795-\u2797\u26A0\u26A1\u2714\u2716\u2733\u2734\u2B06\u2B07]'
 instruction = "Keep emoji out of source and out of anything printed to a terminal or a log. A plain status word carries the same meaning on every encoding."
 why = "Emoji in console output is among the most reliable machine-detectable signs of generated code, and it garbles on terminals and log pipelines that assume ASCII."
 wrong = 'print("✅ Done! Server started successfully 🚀")'
