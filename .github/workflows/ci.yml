@@ -41,3 +41,6 @@ jobs:
           uv run debabble targets
           uv run debabble render --style minimal
           uv run debabble apply --dry-run
+
+      - name: Check our own writing with our own rules
+        run: uv run debabble lint .

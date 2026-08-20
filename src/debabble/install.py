@@ -470,6 +470,18 @@ def status(
     return current, tuple(entries)
 
 
+def lint_excludes(
+    config: Config, *, scope: str = "project", project_root: Path | None = None
+) -> tuple[str, ...]:
+    """Paths ``debabble lint`` should skip: configured ones, plus our own output.
+
+    The files debabble writes contain the rules themselves, word lists and all.
+    Checking them would report every banned term as a violation of itself.
+    """
+    installed = manifest_mod.load(manifest_path(scope, project_root), scope=scope)
+    return config.exclude + tuple(f.path for f in installed.files)
+
+
 def shadowing_warnings(project_root: Path | None) -> tuple[str, ...]:
     """Files that make another tool ignore what debabble wrote to AGENTS.md."""
     if project_root is None:

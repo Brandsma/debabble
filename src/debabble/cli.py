@@ -359,6 +359,88 @@ def render_cmd(
             sys.stdout.write(body)
 
 
+@app.command(name="lint")
+def lint_cmd(
+    paths: Annotated[
+        tuple[Path, ...],
+        Parameter(help="Files or directories to check. Defaults to the current directory."),
+    ] = (),
+    *,
+    register: Annotated[
+        str,
+        Parameter(
+            name=["--register", "-r"],
+            help="Force a register: prose, docs, comments, commits, or code.",
+        ),
+    ] = "",
+    output: Annotated[str, Parameter(name=["--format", "-f"], help="text or json.")] = "text",
+    strict: Annotated[
+        bool, Parameter(help="Fail on flagged rules too, not only banned ones.")
+    ] = False,
+    is_global: GlobalFlag = False,
+) -> None:
+    """Check files against the rules, and report what matched.
+
+    Exits non-zero when a banned rule matched, so this works as a CI gate. Rules
+    a regex cannot judge are skipped rather than guessed at, and code inside
+    fences is not read as prose.
+    """
+    from . import lint as lint_engine
+
+    scope, project_root, config, ruleset = _prepare(is_global=is_global)
+    targets_to_check = list(paths) or [Path.cwd()]
+    exclude = install.lint_excludes(config, scope=scope, project_root=project_root)
+
+    if register:
+        text_findings: list[lint_engine.Finding] = []
+        for path in targets_to_check:
+            if path.is_file():
+                text_findings += lint_engine.lint_text(
+                    path.read_text(encoding="utf-8"), ruleset, register=register, path=path
+                )
+        findings = text_findings
+    else:
+        findings = lint_engine.lint_paths(targets_to_check, ruleset, exclude=exclude)
+
+    if output == "json":
+        import json
+
+        sys.stdout.write(json.dumps([f.as_dict() for f in findings], indent=2) + "\n")
+    else:
+        _print_findings(findings, config)
+
+    worst = lint_engine.worst_severity(findings)
+    if worst is Severity.BAN or (strict and worst is not None):
+        raise SystemExit(1)
+
+
+def _print_findings(findings: list, config: Config) -> None:
+    if not findings:
+        console.print("[green]No findings.[/green]")
+        return
+
+    root = paths.find_project_root()
+    for finding in findings:
+        colour = "red" if finding.severity is Severity.BAN else "yellow"
+        where = (
+            f"{paths.display(finding.path, relative_to=root)}:{finding.line}:{finding.column}"
+            if finding.path
+            else f"{finding.line}:{finding.column}"
+        )
+        console.print(
+            f"[dim]{where}[/dim] [{colour}]{finding.severity}[/{colour}] "
+            f"{finding.rule_id}  [bold]{finding.matched}[/bold]"
+        )
+        console.print(f"    [dim]{finding.message}[/dim]")
+
+    bans = sum(1 for f in findings if f.severity is Severity.BAN)
+    flags = len(findings) - bans
+    console.print(
+        f"\n[bold]{len(findings)}[/bold] findings "
+        f"([red]{bans} banned[/red], [yellow]{flags} flagged[/yellow])"
+    )
+
+
 @app.command
 def packs(*, is_global: GlobalFlag = False) -> None:
     """List the rule packs and whether they are switched on."""

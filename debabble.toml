@@ -35,6 +35,16 @@ avoid = []
 # Words a shipped rule bans that you want to keep using.
 allow = []
 
+[lint]
+# `debabble lint` skips these. Both hold AI-speak as data rather than as
+# writing: the research notes quote it, and the packs list it.
+exclude = [
+    "research/*",
+    "src/debabble/data/packs/*",
+    "tests/*",
+    "PLAN.md",
+]
+
 # Edit any shipped rule by id, or define a new one. `debabble rules <id>`
 # prints a rule in exactly this format, ready to paste and change.
 # [[rules]]

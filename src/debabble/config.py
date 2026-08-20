@@ -28,7 +28,8 @@ STYLES = ("minimal", "compact", "full")
 DEFAULT_STYLE = "compact"
 DEFAULT_TARGETS = ("claude-code",)
 
-_CONFIG_SECTIONS = {"profile", "severity", "custom", "rules"}
+_CONFIG_SECTIONS = {"profile", "severity", "custom", "rules", "lint"}
+_LINT_KEYS = {"exclude"}
 _PROFILE_KEYS = {"packs", "targets", "style"}
 _CUSTOM_KEYS = {"avoid", "allow"}
 
@@ -45,6 +46,9 @@ class Config:
     avoid: tuple[str, ...] = ()
     allow: tuple[str, ...] = ()
     rule_overrides: tuple[dict[str, Any], ...] = ()
+    # Paths `debabble lint` should not read, as globs relative to the project
+    # root. Data files and quoted research are the usual cases.
+    exclude: tuple[str, ...] = ()
     sources: tuple[Path, ...] = ()
 
     def merged_with(self, other: Config) -> Config:
@@ -62,6 +66,7 @@ class Config:
             avoid=tuple(dict.fromkeys(self.avoid + other.avoid)),
             allow=tuple(dict.fromkeys(self.allow + other.allow)),
             rule_overrides=self.rule_overrides + other.rule_overrides,
+            exclude=tuple(dict.fromkeys(self.exclude + other.exclude)),
             sources=self.sources + other.sources,
         )
 
@@ -146,6 +151,17 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
         if not isinstance(entry, dict) or not str(entry.get("id", "")).strip():
             raise ConfigError(f"{where}: every [[rules]] entry needs an 'id'.")
 
+    lint_section = data.get("lint", {})
+    if not isinstance(lint_section, dict):
+        raise ConfigError(f"{where}: [lint] must be a table.")
+    unknown = set(lint_section) - _LINT_KEYS
+    if unknown:
+        raise ConfigError(
+            f"{where}: unknown key {min(unknown)!r} in [lint]. "
+            f"Valid keys are: {', '.join(sorted(_LINT_KEYS))}."
+        )
+    exclude = _as_str_tuple(lint_section.get("exclude", []), where=f"{where}: lint.exclude")
+
     return Config(
         packs=packs,
         targets=targets,
@@ -154,6 +170,7 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
         avoid=avoid,
         allow=allow,
         rule_overrides=tuple(rules),
+        exclude=exclude,
         sources=(source,) if source else (),
     )
 

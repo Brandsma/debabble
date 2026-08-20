@@ -109,6 +109,36 @@ Packs on by default: `chat-artifacts`, `vocabulary`, `phrases`, `structure`,
 `punctuation`, `code-comments`, `commits`, `docs-readme`, `minimal-docs`.
 `corporate-speak` is available but off unless you ask for it.
 
+## Checking text
+
+The same rules can be checked after the fact:
+
+```bash
+debabble lint .
+```
+
+It reports a rule, a file, a line, and the text that matched, and exits non-zero
+when a banned rule matched, so it works as a CI gate. Flagged rules are reported
+but do not fail the run unless you pass `--strict`. `--format json` gives
+machine-readable output.
+
+The linter is regex and counting, not a model. Rules it cannot judge honestly,
+such as sentence rhythm or whether a docstring was worth writing, are marked as
+guidance in their pack and skipped here rather than guessed at. It also knows
+the difference between using a word and naming one: code inside fences, inline
+code, string literals, and short quoted mentions are not read as prose.
+
+To silence a line, put `debabble-ignore` in a comment on it or the line above.
+To skip files entirely, list globs under `[lint]`:
+
+```toml
+[lint]
+exclude = ["research/*", "CHANGELOG.md"]
+```
+
+Files debabble itself wrote are skipped automatically; they contain the rules,
+banned words and all.
+
 ## Making it yours
 
 The shipped rules are a starting point. Three ways to change them, shortest

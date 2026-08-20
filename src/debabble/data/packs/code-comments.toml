@@ -25,7 +25,7 @@ title = "Comment the why, not the line"
 severity = "ban"
 kind = "regex"
 registers = ["comments"]
-pattern = '(?i)^\s*(?:#|//|--|;|/\*|\*)?\s*(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))\s+(?:(?:the|a|an|all|our|new)\s+)?\w+(?:\s+\w+)?\s*[.:;]?\s*(?:\*/)?$'
+pattern = '(?i)^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*(?:import|initiali[sz]e|instantiate|increment|decrement|declare|define|create|return|print|call|assign|set|get|loop (?:over|through)|iterate (?:over|through))[ \t]+(?:(?:the|a|an|all|our|new)[ \t]+)?\w+(?:[ \t]+\w+)?[ \t]*[.:;]?[ \t]*(?:\*/)?[ \t]*$'
 instruction = "Write a comment only where the code would surprise a reader, and make it say why. Never restate the line below it."
 why = "A comment that repeats the code adds a second thing to keep in sync and tells the reader nothing the line did not already say."
 wrong = "# Loop through the items"
@@ -37,7 +37,7 @@ title = "No drawn section banners"
 severity = "flag"
 kind = "regex"
 registers = ["comments"]
-pattern = '^\s*(?:#|//|--|;|/\*|\*)?\s*[-=*_~+#/]{4,}'
+pattern = '^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*[-=*_~+#/]{4,}'
 max = 1
 unit = "document"
 instruction = "Do not divide a file with drawn banner comments. A file that needs them to stay navigable should be split into modules."
@@ -51,7 +51,7 @@ title = "No Note or Warning labels"
 severity = "ban"
 kind = "regex"
 registers = ["comments"]
-pattern = '(?i)^\s*(?:#|//|--|;|/\*|\*)?\s*[^\w\s]{0,3}\s*(?:note|important|warning|caution|tip|remember|heads.?up|fyi|attention|disclaimer)\b\s*[:!]'
+pattern = '(?i)^[ \t]*(?:#|//|--|;|/\*|\*)[ \t]*[^\w\s]{0,3}[ \t]*(?:note|important|warning|caution|tip|remember|heads.?up|fyi|attention|disclaimer)\b[ \t]*[:!]'
 instruction = "Do not label a comment Note, Important, or Warning. A comment is already the note, so state the fact plainly."
 why = "The label carries no information: every comment is by definition something the writer thought worth saying."
 wrong = "# Important: the lock must be held here."
