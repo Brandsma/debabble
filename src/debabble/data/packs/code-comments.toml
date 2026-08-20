@@ -3,6 +3,9 @@ id = "code-comments"
 title = "Code comments and identifiers"
 description = "Comments that restate the code, callout labels, docstring ceremony, emoji in console output, and identifiers named after their own improvement."
 version = "2026.08"
+# Off by default: only relevant if the tool is writing code.
+# Turn it on with: debabble apply --pack code-comments --save
+default = false
 priority = 75
 references = [
     "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",

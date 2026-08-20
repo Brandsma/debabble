@@ -76,7 +76,10 @@ def test_readme_only_names_real_rules():
 
 def test_readme_target_table_matches_the_registry():
     """Every shipped target should be documented, and vice versa."""
-    documented = set(re.findall(r"^\| `([\w-]+)` \|", README, re.MULTILINE))
+    # Read only the target table, which is the one with three columns whose
+    # header names the project and user-wide files.
+    section = README.split("| Target | Project file | User-wide file |", 1)[1].split("\n\n", 1)[0]
+    documented = set(re.findall(r"^\| `([\w-]+)` \|", section, re.MULTILINE))
     registered = {t.id for t in all_targets()}
     assert documented == registered, (
         f"missing from README: {sorted(registered - documented)}; "
@@ -90,16 +93,43 @@ def test_readme_names_real_styles():
 
 
 def test_readme_lists_the_default_packs_correctly():
-    """The README claims which packs are on by default; that claim must hold."""
+    """The README names the default packs; that claim must stay true."""
     defaults = {p.id for p in load_all_packs([]) if p.default}
+
+    row = next(line for line in README.splitlines() if line.startswith("| Default |"))
+    claimed = set(re.findall(r"`([\w-]+)`", row))
+
+    assert claimed == defaults, (
+        f"README says the default is {sorted(claimed)}; the packs say {sorted(defaults)}"
+    )
+
+
+def test_readme_explains_every_opt_in_pack():
+    """A pack nobody can find out about is a pack nobody turns on."""
     opt_in = {p.id for p in load_all_packs([]) if not p.default}
 
-    claim = README.split("Packs on by default:", 1)[1].split("\n\n", 1)[0]
-    claimed = set(re.findall(r"`([\w-]+)`", claim))
+    section = README.split("| Pack | Turn it on when |", 1)[1].split("\n\n", 1)[0]
+    documented = set(re.findall(r"^\| `([\w-]+)` \|", section, re.MULTILINE))
 
-    assert claimed & defaults == defaults - {"custom"}, "README default pack list is stale"
-    for pack_id in opt_in:
-        assert f"`{pack_id}` is available but off" in README or pack_id in claim
+    assert documented == opt_in, (
+        f"missing from README: {sorted(opt_in - documented)}; "
+        f"stale in README: {sorted(documented - opt_in)}"
+    )
+
+
+def test_readme_quotes_the_real_cost_of_each_profile():
+    """The size claims are the reason for the small default, so check them."""
+    from debabble.config import Config
+    from debabble.render import render_body
+
+    every = tuple(p.id for p in load_all_packs([]))
+    default_kb = len(render_body(resolve_ruleset(Config()))) // 1000
+    all_kb = len(render_body(resolve_ruleset(Config(packs=every)))) // 1000
+
+    assert f"about {default_kb} kB" in README, (
+        f"README misstates the default cost ({default_kb} kB)"
+    )
+    assert f"about {all_kb} kB" in README, f"README misstates the full cost ({all_kb} kB)"
 
 
 def test_every_pack_cites_its_sources():

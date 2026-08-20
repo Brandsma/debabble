@@ -3,6 +3,9 @@ id = "docs-readme"
 title = "READMEs and docs"
 description = "README and technical-documentation tells: emoji headings, marketing superlatives, unmeasured statistics, and ceremony a small project cannot carry."
 version = "2026.08"
+# Off by default: only relevant if the tool is writing READMEs.
+# Turn it on with: debabble apply --pack docs-readme --save
+default = false
 priority = 60
 references = [
     "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",

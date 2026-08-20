@@ -3,6 +3,9 @@ id = "minimal-docs"
 title = "Minimal documentation"
 description = "Decisions a linter cannot make: whether a document should exist at all, where it belongs, and how much structure it earns."
 version = "2026.08"
+# Off by default: an editorial stance on when docs should exist at all.
+# Turn it on with: debabble apply --pack minimal-docs --save
+default = false
 priority = 55
 references = [
     "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",

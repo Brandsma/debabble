@@ -3,6 +3,9 @@ id = "structure"
 title = "Structure and rhetoric"
 description = "Shape-level tells: negative parallelism, reflexive triads, significance clauses, ritual summaries, bullet and bold overuse, and outline-shaped prose."
 version = "2026.08"
+# Off by default: shape-level tells need more judgement than the vocabulary ones.
+# Turn it on with: debabble apply --pack structure --save
+default = false
 priority = 80
 references = [
     "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",

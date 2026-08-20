@@ -3,12 +3,12 @@
 Install no-AI-speak writing rules into your AI coding tools, per project or
 user-wide.
 
-AI assistants write in a recognisable way: "delve", "seamless", "it is important
-to note", "not just X, but Y", emoji-headed READMEs, comments that restate the
-line below them, commit messages that narrate instead of stating. debabble keeps
-a curated set of rules against those habits and writes them into the instruction
-files your tools already read, so the rules shape what gets generated rather
-than being cleaned up afterwards.
+AI assistants write in a recognisable way: `delve`, `seamless`, `it is
+important to note`, `not just X, but Y`, emoji-headed READMEs, comments that
+restate the line below them, commit messages that narrate instead of stating.
+debabble keeps a curated set of rules against those habits and writes them into
+the instruction files your tools already read, so the rules shape what gets
+generated rather than being cleaned up afterwards.
 
 ## Install
 
@@ -113,15 +113,45 @@ density guidance: fine once, a tell in clusters. The split matters, because
 banning ordinary words teaches a model to write around the ban instead of
 writing plainly.
 
-An instruction file is read on every request, so its size is a real cost.
-`debabble apply` prints how much it is asking for, and three styles trade
-completeness against context: `minimal` carries the bans only, `compact` states
-every active rule, and `full` adds a wrong/right example to each. Narrowing
-`packs` is the other lever.
+### The default is deliberately small
 
-Packs on by default: `chat-artifacts`, `vocabulary`, `phrases`, `structure`,
-`punctuation`, `code-comments`, `commits`, `docs-readme`, `minimal-docs`.
-`corporate-speak` is available but off unless you ask for it.
+An instruction file is read on every request, and it lands in a system message
+that is usually long already. So the default is four packs, not ten:
+
+| | Packs | Rules | Cost per request |
+| --- | --- | --- | --- |
+| Default | `chat-artifacts`, `vocabulary`, `phrases`, `punctuation` | 32 | about 11 kB, near 2k tokens |
+| Everything | all ten | 85 | about 25 kB, near 6k tokens |
+
+Those four cover the complaints people actually make: `You're absolutely right`,
+`delve` and `seamless`, `it is important to note that`, and emoji everywhere.
+
+The rest are off because they earn their place only in some projects:
+
+| Pack | Turn it on when |
+| --- | --- |
+| `structure` | you want the shape-level tells too: `not just X, but Y`, reflexive triads, every section closing with a summary |
+| `code-comments` | the tool writes code, and you are tired of comments that restate the line below them |
+| `commits` | the tool writes commit messages or pull request descriptions |
+| `docs-readme` | the tool writes READMEs, and you do not want "blazingly fast" or emoji headings |
+| `minimal-docs` | you want it to stop creating documentation nobody asked for |
+| `corporate-speak` | "circle back", "low-hanging fruit", "move the needle" |
+
+Add what you need and keep it:
+
+```bash
+debabble apply --pack chat-artifacts --pack vocabulary --pack phrases \
+               --pack punctuation --pack code-comments --pack commits --save
+```
+
+Whether this trade is worth making depends on the project. A repository whose
+main output is prose or documentation probably wants most of the packs; one
+where the agent mostly edits code may want the default four and
+`code-comments`. This repository runs the full set, because its output is
+rules about writing.
+
+If context is tight, `--style minimal` carries only the bans and roughly halves
+whatever you have chosen.
 
 ## Checking text
 

@@ -3,6 +3,9 @@ id = "commits"
 title = "Commit messages and PRs"
 description = "Commit subjects that narrate instead of instruct, bodies out of proportion to the diff, and PR descriptions that grade their own changes."
 version = "2026.08"
+# Off by default: only relevant if the tool is writing commits.
+# Turn it on with: debabble apply --pack commits --save
+default = false
 priority = 65
 references = [
     "https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing",

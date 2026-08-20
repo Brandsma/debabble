@@ -50,7 +50,14 @@ I hope this helps!
 
 @pytest.fixture
 def ruleset():
-    return resolve_ruleset(Config())
+    """Every shipped pack, not just the default profile.
+
+    These tests exercise the engine against the rules as written, so which
+    packs happen to be on by default must not change what they cover.
+    """
+    from debabble.packs import load_builtin_packs
+
+    return resolve_ruleset(Config(packs=tuple(p.id for p in load_builtin_packs())))
 
 
 def ids(findings: list[Finding]) -> set[str]:
@@ -486,7 +493,9 @@ def test_one_invitation_is_fine_but_a_habit_is_not(ruleset):
         "Feel free to reach out.\n\nMore.\n\nDo not hesitate to ask.\n\n"
         "If you have any questions, feel free to ask.\n"
     )
-    assert lint_text(one, ruleset, register="docs") == []
+    # Checked by rule rather than by emptiness: with every pack loaded,
+    # "reach out" is also a meeting idiom, which is a separate finding.
+    assert "chat-artifacts.invitations" not in ids(lint_text(one, ruleset, register="docs"))
     assert "chat-artifacts.invitations" in ids(lint_text(many, ruleset, register="docs"))
 
 
