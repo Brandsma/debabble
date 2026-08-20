@@ -19,6 +19,7 @@ from pathlib import Path
 from . import managed_block, paths
 from . import manifest as manifest_mod
 from .config import Config
+from .errors import BlockError, TargetError
 from .manifest import InstalledFile, Manifest, content_hash
 from .models import RuleSet
 from .render import render, render_rewrite_command
@@ -149,15 +150,10 @@ def _ensure_backup(path: Path, scope: str, project_root: Path | None, *, dry_run
     shutil.copy2(path, destination)
 
 
-def _restore_backup(path: Path, scope: str, project_root: Path | None, *, dry_run: bool) -> bool:
+def backup_for(path: Path, scope: str, project_root: Path | None) -> Path | None:
+    """The snapshot taken before debabble first modified this file, if there is one."""
     source = backup_dir(scope, project_root) / _backup_name(path)
-    if not source.is_file():
-        return False
-    if not dry_run:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, path)
-        source.unlink()
-    return True
+    return source if source.is_file() else None
 
 
 def ensure_backups_ignored(project_root: Path) -> None:
@@ -217,19 +213,43 @@ def apply(
             warnings.append(f"{target_id}: {target.note(scope)}")
 
         for target_file in files:
-            change, record = _apply_one(
-                target=target,
-                target_file=target_file,
-                ruleset=ruleset,
-                style=style,
-                scope=scope,
-                project_root=project_root,
-                dry_run=dry_run,
-                warnings=warnings,
-            )
+            try:
+                change, record = _apply_one(
+                    target=target,
+                    target_file=target_file,
+                    ruleset=ruleset,
+                    style=style,
+                    scope=scope,
+                    project_root=project_root,
+                    dry_run=dry_run,
+                    warnings=warnings,
+                )
+            except BlockError as err:
+                # One unreadable file should not stop the other targets.
+                changes.append(Change(target_id, target_file.path, SKIP, str(err)))
+                continue
             changes.append(change)
             if record is not None:
                 installed.append(record)
+
+    # A target can move its file: Windsurf switches to .devin/rules once that
+    # directory exists. Delete what we wrote at the old path so the tool is not
+    # left reading a stale copy nobody maintains.
+    written_now = {(r.target, r.path) for r in installed}
+    for old in previous.files:
+        if (
+            old.target in {r.target for r in installed}
+            and (old.target, old.path) not in written_now
+        ):
+            stale = old.resolve(project_root if scope == "project" else None)
+            if stale.is_file():
+                if not dry_run:
+                    if old.created:
+                        stale.unlink()
+                    else:
+                        text = managed_block.remove(_read(stale) or "")
+                        stale.write_text(text, encoding="utf-8") if text.strip() else stale.unlink()
+                changes.append(Change(old.target, stale, DELETE, "the target moved its file"))
 
     # Carry forward records for targets this run did not touch.
     touched = {r.target for r in installed} | {c.target for c in changes if c.action == SKIP}
@@ -394,10 +414,10 @@ def _remove_target(
             changes.append(Change(target_id, path, DELETE))
             continue
 
-        if _restore_backup(path, scope, project_root, dry_run=dry_run):
-            changes.append(Change(target_id, path, RESTORE, "restored from backup"))
-            continue
-
+        # Take the block out of the file as it stands now. Restoring the
+        # install-time backup instead would throw away every edit made since,
+        # which is the opposite of what uninstalling should cost you. The
+        # backup stays on disk as a safety net.
         stripped = managed_block.remove(existing)
         if stripped == existing:
             changes.append(Change(target_id, path, MISSING, "no debabble block found"))
@@ -452,7 +472,16 @@ def status(
             )
             continue
 
-        target = get_target(record.target)
+        try:
+            target = get_target(record.target)
+        except TargetError:
+            # A manifest can outlive the version that wrote it, or name a target
+            # from a newer release. Say so instead of refusing to run.
+            entries.append(
+                StatusEntry(record.target, path, MISSING, "this version has no such target")
+            )
+            continue
+
         matching = [f for f in target.files(scope, project_root or Path.cwd()) if f.path == path]
         if matching:
             body, _ = build_content(matching[0], ruleset, style)

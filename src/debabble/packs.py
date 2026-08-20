@@ -9,6 +9,7 @@ read in a shipped pack you can also write in your own config.
 from __future__ import annotations
 
 import difflib
+import re
 import tomllib
 from dataclasses import fields as dataclass_fields
 from pathlib import Path
@@ -126,6 +127,15 @@ def _check_rule_consistency(rule: Rule, *, where: str) -> None:
         raise PackError(f"{where}: rule {rule.id!r} is kind 'phrase' but lists no 'phrases'.")
     if rule.kind == "regex" and not rule.pattern:
         raise PackError(f"{where}: rule {rule.id!r} is kind 'regex' but has no 'pattern'.")
+    if rule.pattern:
+        # Compile now so a typo is reported against the file that holds it,
+        # rather than crashing later inside the linter.
+        try:
+            re.compile(rule.pattern)
+        except re.error as err:
+            raise PackError(
+                f"{where}: rule {rule.id!r} has a pattern that is not valid: {err}"
+            ) from err
     if rule.fix and rule.fix != "safe":
         raise PackError(
             f"{where}: rule {rule.id!r} has fix={rule.fix!r}; the only supported value is 'safe'."

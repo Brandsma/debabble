@@ -124,3 +124,13 @@ def test_a_broken_pack_file_names_itself(tmp_path):
     path.write_text("this is not toml = = =", encoding="utf-8")
     with pytest.raises(PackError, match="not valid TOML"):
         load_pack_file(path)
+
+
+def test_an_invalid_regex_is_reported_against_its_file():
+    """A typo in a pattern should name the pack, not crash the linter later."""
+    data = {
+        **MINIMAL,
+        "rules": [{"id": "one", "instruction": "x", "kind": "regex", "pattern": "([unclosed"}],
+    }
+    with pytest.raises(PackError, match="not valid"):
+        build_pack(data, source="test")

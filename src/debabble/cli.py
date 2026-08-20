@@ -18,7 +18,7 @@ from . import install, paths
 from .config import STYLES, Config, load_config, resolve_ruleset
 from .config import _rule_to_dict as rule_to_dict
 from .errors import ConfigError, DebabbleError
-from .models import Severity
+from .models import REGISTERS, Severity
 from .packs import load_all_packs
 from .render import render_body, render_rewrite_command
 from .targets import CONTENT_REWRITE, all_targets, get_target
@@ -446,6 +446,8 @@ def lint_cmd(
     exclude = install.lint_excludes(config, scope=scope, project_root=project_root)
 
     if register:
+        if register not in REGISTERS:
+            raise ConfigError(f"--register must be one of: {', '.join(REGISTERS)}.")
         text_findings: list[lint_engine.Finding] = []
         for path in targets_to_check:
             if path.is_file():
@@ -454,7 +456,9 @@ def lint_cmd(
                 )
         findings = text_findings
     else:
-        findings = lint_engine.lint_paths(targets_to_check, ruleset, exclude=exclude)
+        findings = lint_engine.lint_paths(
+            targets_to_check, ruleset, exclude=exclude, project_root=project_root
+        )
 
     if output == "json":
         import json

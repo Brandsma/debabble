@@ -126,7 +126,9 @@ def lint_files(
     """Check files on disk and report what matched."""
     ruleset, config, root = load_rules(project_dir or None)
     exclude = install.lint_excludes(config, scope="project", project_root=root)
-    findings = lint_paths([Path(p) for p in paths_to_check], ruleset, exclude=exclude)
+    findings = lint_paths(
+        [Path(p) for p in paths_to_check], ruleset, exclude=exclude, project_root=root
+    )
     return {
         "findings": [f.as_dict() for f in findings],
         "banned": sum(1 for f in findings if f.severity == "ban"),

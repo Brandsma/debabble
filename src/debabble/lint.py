@@ -124,6 +124,55 @@ _INDENTED_CODE = re.compile(r"^(?: {4}|\t).*$", re.MULTILINE)
 _MENTION = re.compile(r"[\"“‘']\s*[\w-]+(?:\s+[\w-]+){0,2}\s*[\"”’']")
 
 
+def mask_indented_code(text: str) -> str:
+    """Blank out indented code blocks, without swallowing indented list items.
+
+    A run of four-space-indented lines after a blank line is a code block in
+    Markdown, but so is the continuation of a bullet. Requiring that the run
+    does not begin with a list marker keeps prose inside lists readable to the
+    rules, at the cost of missing findings in the rare code block that opens
+    with something that looks like a bullet.
+    """
+    lines = text.splitlines(keepends=True)
+    out = list(lines)
+    previous_blank = True
+    in_block = False
+    in_list = False
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            if not in_block:
+                previous_blank = True
+            continue
+
+        indent = len(line) - len(line.lstrip(" \t"))
+        # Inside a list, four spaces is the continuation of an item; code has
+        # to clear the item's own indent first. Outside one, four is code.
+        threshold = 8 if in_list else 4
+        is_list_marker = re.match(r"[ \t]*(?:[-*+]|\d+[.)])\s", line) is not None
+
+        if is_list_marker and indent < threshold:
+            in_list = True
+            in_block = False
+            previous_blank = False
+            continue
+
+        if indent < 4:
+            # Back at the left margin: no longer in a list or a code block.
+            in_list = False
+            in_block = False
+            previous_blank = False
+            continue
+
+        if in_block or (previous_blank and indent >= threshold):
+            in_block = True
+            out[i] = re.sub(r"[^\n]", " ", line)
+        previous_blank = False
+
+    return "".join(out)
+
+
 def mask_markdown(text: str) -> str:
     """Hide code and quoted mentions from prose rules.
 
@@ -131,6 +180,7 @@ def mask_markdown(text: str) -> str:
     of it, including debabble's own README.
     """
     masked = _FENCE.sub(_blank, text)
+    masked = mask_indented_code(masked)
     masked = _INLINE_CODE.sub(_blank, masked)
     masked = _MENTION.sub(_blank, masked)
     return masked
@@ -460,19 +510,22 @@ _SKIP_DIRS = {
 }
 
 
-def walk_files(root: Path, exclude: tuple[str, ...] = ()) -> list[Path]:
+def walk_files(
+    root: Path, exclude: tuple[str, ...] = (), *, project_root: Path | None = None
+) -> list[Path]:
     """Every file under a directory that is worth checking.
 
     Directories in the skip list are pruned during the walk rather than
     filtered afterwards, which matters: descending into a virtual environment
     to throw the results away takes longer than the linting does.
     """
+    base = project_root or root
     found: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
         for name in sorted(filenames):
             path = Path(dirpath) / name
-            if registers_for_path(path) and not is_excluded(path, root, exclude):
+            if registers_for_path(path) and not is_excluded(path, base, exclude):
                 found.append(path)
     return found
 
@@ -492,15 +545,24 @@ def is_excluded(path: Path, root: Path, exclude: tuple[str, ...]) -> bool:
 
 
 def lint_paths(
-    paths: list[Path], ruleset: RuleSet, *, exclude: tuple[str, ...] = ()
+    paths: list[Path],
+    ruleset: RuleSet,
+    *,
+    exclude: tuple[str, ...] = (),
+    project_root: Path | None = None,
 ) -> list[Finding]:
-    """Check files and directories, skipping anything unreadable or irrelevant."""
+    """Check files and directories, skipping anything unreadable or irrelevant.
+
+    Exclude globs are written relative to the project, so they mean the same
+    thing whether you check the whole tree or one subdirectory of it.
+    """
+    root = project_root or Path.cwd()
     findings: list[Finding] = []
     for path in paths:
         if path.is_dir():
-            for child in walk_files(path, exclude):
+            for child in walk_files(path, exclude, project_root=root):
                 findings += lint_file(child, ruleset)
-        elif path.is_file() and not is_excluded(path, Path.cwd(), exclude):
+        elif path.is_file() and not is_excluded(path, root, exclude):
             findings += lint_file(path, ruleset)
     return findings
 

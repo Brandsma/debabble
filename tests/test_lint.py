@@ -368,3 +368,36 @@ def test_the_project_passes_its_own_lint():
     assert banned == [], (
         f"debabble breaks its own banned rules: {[(f.rule_id, str(f.path)) for f in banned]}"
     )
+
+
+def test_indented_code_blocks_are_not_read_as_prose(ruleset):
+    text = "# Doc\n\nExample:\n\n    Great question! I hope this helps.\n\nreal text\n"
+    assert lint_text(text, ruleset, register="docs") == []
+
+
+def test_indented_list_items_are_still_read_as_prose(ruleset):
+    """Masking code must not swallow the continuation of a bullet."""
+    text = "# Doc\n\n- A point\n\n    Great question! This is list prose.\n"
+    assert ids(lint_text(text, ruleset, register="docs"))
+
+
+def test_exclude_globs_are_relative_to_the_project_not_the_walk(ruleset, tmp_path):
+    """`debabble lint src/` must honour a pattern written as `src/generated/*`."""
+    (tmp_path / "src" / "generated").mkdir(parents=True)
+    (tmp_path / "src" / "generated" / "out.md").write_text("Great question!\n", encoding="utf-8")
+    (tmp_path / "src" / "hand.md").write_text("Great question!\n", encoding="utf-8")
+
+    findings = lint_paths(
+        [tmp_path / "src"],
+        ruleset,
+        exclude=("src/generated/*",),
+        project_root=tmp_path,
+    )
+    named = {f.path.name for f in findings}
+    assert named == {"hand.md"}
+
+
+def test_code_indented_inside_a_list_is_still_code(ruleset):
+    """Eight spaces inside a list clears the item indent, so it is code."""
+    text = "# Doc\n\n- A point\n\n        Great question! I hope this helps.\n"
+    assert lint_text(text, ruleset, register="docs") == []

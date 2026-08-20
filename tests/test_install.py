@@ -305,3 +305,94 @@ def test_hermes_global_uses_its_own_home(ruleset, project, tmp_path, monkeypatch
 
     install.remove(scope="global", project_root=None)
     assert not soul.exists()
+
+
+# ---------------------------------------------------------------------------
+# Not damaging files, in the awkward cases
+# ---------------------------------------------------------------------------
+
+
+def test_remove_keeps_edits_made_after_installing(ruleset, project):
+    """Uninstalling must not cost you work done since you installed."""
+    agents = project / "AGENTS.md"
+    agents.write_text(USER_TEXT, encoding="utf-8")
+    _apply(ruleset, project, ("agents-md",))
+
+    agents.write_text(
+        agents.read_text(encoding="utf-8") + "\nWritten after installing.\n", encoding="utf-8"
+    )
+    install.remove(scope="project", project_root=project)
+    text = agents.read_text(encoding="utf-8")
+
+    assert "Written after installing." in text
+    assert "Always run the migration before deploying." in text
+    assert managed_block.BEGIN not in text
+
+
+def test_markers_inside_a_code_fence_are_left_alone(ruleset, project):
+    """A document showing what the markers look like is documentation."""
+    agents = project / "AGENTS.md"
+    agents.write_text(
+        "# Notes\n\nThe block looks like this:\n\n```\n"
+        f"{managed_block.BEGIN}\nSAMPLE\n{managed_block.END}\n"
+        "```\n\nReal content.\n",
+        encoding="utf-8",
+    )
+
+    _apply(ruleset, project, ("agents-md",))
+    text = agents.read_text(encoding="utf-8")
+
+    assert "SAMPLE" in text, "the fenced example was overwritten"
+    assert "Real content." in text
+    assert text.count(managed_block.BEGIN) == 2  # the sample, plus a real block
+
+
+def test_a_half_written_block_is_refused_rather_than_guessed_at(ruleset, project):
+    """Editing the wrong span of somebody's file is worse than doing nothing."""
+    agents = project / "AGENTS.md"
+    agents.write_text(f"# Notes\n\nKeep this.\n\n{managed_block.BEGIN}\n\nAnd this.\n", "utf-8")
+    before = agents.read_text(encoding="utf-8")
+
+    outcome = _apply(ruleset, project, ("agents-md",))
+
+    assert agents.read_text(encoding="utf-8") == before
+    assert [c.action for c in outcome.changes] == [install.SKIP]
+    assert "markers" in outcome.changes[0].detail
+
+
+def test_one_bad_file_does_not_stop_the_other_targets(ruleset, project):
+    (project / "AGENTS.md").write_text(f"{managed_block.BEGIN}\nbroken\n", encoding="utf-8")
+
+    outcome = _apply(ruleset, project, ("agents-md", "claude-code"))
+    actions = {c.target: c.action for c in outcome.changes}
+
+    assert actions["agents-md"] == install.SKIP
+    assert actions["claude-code"] == install.CREATE
+
+
+def test_status_survives_a_target_it_does_not_know(ruleset, project):
+    """A manifest can outlive the release that wrote it."""
+    _apply(ruleset, project, ("claude-code",))
+    path = install.manifest_path("project", project)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace('"claude-code"', '"from-the-future"'),
+        encoding="utf-8",
+    )
+
+    _current, entries = install.status(
+        ruleset, Config(targets=("claude-code",)), scope="project", project_root=project
+    )
+    assert [e.state for e in entries] == [install.MISSING]
+
+
+def test_a_target_that_moves_its_file_cleans_up_the_old_one(ruleset, project):
+    """Windsurf switches to .devin/rules once that directory exists."""
+    _apply(ruleset, project, ("windsurf",))
+    old = project / ".windsurf" / "rules" / "debabble.md"
+    assert old.is_file()
+
+    (project / ".devin").mkdir()
+    _apply(ruleset, project, ("windsurf",))
+
+    assert (project / ".devin" / "rules" / "debabble.md").is_file()
+    assert not old.exists(), "the old rules file was left behind for the tool to read"

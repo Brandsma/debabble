@@ -21,3 +21,7 @@ class ConfigError(DebabbleError):
 
 class TargetError(DebabbleError):
     """An install target could not be written, read, or resolved."""
+
+
+class BlockError(DebabbleError):
+    """A managed block in a file is ambiguous, so debabble will not touch it."""
