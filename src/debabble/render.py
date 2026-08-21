@@ -197,7 +197,7 @@ Rewrite the text below so it follows every rule above.
 
 Preserve the meaning, the technical content, and the author's intent exactly.
 Do not add information, and do not remove information. Change only the writing.
-If the text already follows the rules, say so and leave it alone.
+If the text already follows the rules, return it unchanged.
 
 Output only the rewritten text, with no preamble and no commentary.
 

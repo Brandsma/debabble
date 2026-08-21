@@ -17,7 +17,9 @@ import pytest
 pytestmark = pytest.mark.slow
 
 
-def run(*args: str, cwd, expect_ok: bool = True) -> subprocess.CompletedProcess:
+def run(
+    *args: str, cwd, expect_ok: bool = True, input_text: str | None = None
+) -> subprocess.CompletedProcess:
     """Run debabble in a directory and return the finished process."""
     env = {
         **os.environ,
@@ -35,6 +37,10 @@ def run(*args: str, cwd, expect_ok: bool = True) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         encoding="utf-8",
+        input=input_text,
+        # An inherited stdin could be a terminal, and a terminal changes what
+        # the rewrite command does. Closed stdin keeps every run the same.
+        stdin=subprocess.DEVNULL if input_text is None else None,
     )
     if expect_ok and result.returncode != 0:
         raise AssertionError(
@@ -224,6 +230,54 @@ def test_lint_does_not_flag_the_files_debabble_wrote(project):
     run("apply", cwd=project)
     result = run("lint", ".", cwd=project)
     assert result.returncode == 0
+
+
+def test_lint_checks_a_string(project):
+    result = run("lint", "--text", "Great question!", cwd=project, expect_ok=False)
+    assert result.returncode == 1
+    assert "sycophancy" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Rewriting
+# ---------------------------------------------------------------------------
+
+
+def write_fake_backend(project, reply_lines: str) -> None:
+    """Point the project's [rewrite] section at a script that plays the model."""
+    script = project / "fake_model.py"
+    script.write_text(f"import sys\nsys.stdin.read()\n{reply_lines}\n", encoding="utf-8")
+    command = f'"{sys.executable}" "{script}"'
+    (project / "debabble.toml").write_text(
+        f"[rewrite]\nbackend = \"command\"\ncommand = '{command}'\n", encoding="utf-8"
+    )
+
+
+def test_rewrite_without_a_backend_points_at_configure(project):
+    # An empty [rewrite] section pins "no backend", whatever the machine's own
+    # global config says.
+    (project / "debabble.toml").write_text("[rewrite]\n", encoding="utf-8")
+    result = run("rewrite", "Great question!", cwd=project, expect_ok=False)
+    assert result.returncode == 1
+    assert "--configure" in (result.stdout + result.stderr)
+
+
+def test_rewrite_uses_the_configured_command_backend(project):
+    write_fake_backend(project, "print('The cache expires after 300 seconds.')")
+    result = run("rewrite", "Great question!", cwd=project)
+    assert "cache expires" in result.stdout
+
+
+def test_rewrite_reads_standard_input(project):
+    write_fake_backend(project, "print('The cache expires after 300 seconds.')")
+    result = run("rewrite", cwd=project, input_text="Great question!")
+    assert "cache expires" in result.stdout
+
+
+def test_rewrite_notes_when_the_output_still_breaks_a_rule(project):
+    write_fake_backend(project, "print('Great question!')")
+    result = run("rewrite", "some draft", cwd=project)
+    assert "still matches" in result.stderr
 
 
 # ---------------------------------------------------------------------------

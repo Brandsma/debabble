@@ -23,12 +23,13 @@ from . import paths
 from .errors import ConfigError
 from .models import Pack, Rule, RuleSet, Severity
 from .packs import build_rule, did_you_mean, load_all_packs
+from .rewrite import parse_rewrite_table
 
 STYLES = ("minimal", "compact", "full")
 DEFAULT_STYLE = "compact"
 DEFAULT_TARGETS = ("claude-code",)
 
-_CONFIG_SECTIONS = {"profile", "severity", "custom", "rules", "lint"}
+_CONFIG_SECTIONS = {"profile", "severity", "custom", "rules", "lint", "rewrite"}
 _LINT_KEYS = {"exclude"}
 _PROFILE_KEYS = {"packs", "targets", "style"}
 _CUSTOM_KEYS = {"avoid", "allow"}
@@ -161,6 +162,11 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
             f"Valid keys are: {', '.join(sorted(_LINT_KEYS))}."
         )
     exclude = _as_str_tuple(lint_section.get("exclude", []), where=f"{where}: lint.exclude")
+
+    # [rewrite] is checked here so a typo in it fails at load time like any
+    # other section. Its values are read by debabble.rewrite rather than
+    # carried on Config: the backend is machine state, not part of the profile.
+    parse_rewrite_table(data.get("rewrite", {}), where=where)
 
     return Config(
         packs=packs,

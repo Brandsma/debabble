@@ -432,47 +432,60 @@ def lint_cmd(
     strict: Annotated[
         bool, Parameter(help="Fail on flagged rules too, not only banned ones.")
     ] = False,
+    text: Annotated[
+        str, Parameter(name=["--text"], help="Check this string instead of files.")
+    ] = "",
     is_global: GlobalFlag = False,
 ) -> None:
     """Check files against the rules, and report what matched.
 
     Exits non-zero when a banned rule matched, so this works as a CI gate. Rules
     a regex cannot judge are skipped rather than guessed at, and code inside
-    fences is not read as prose.
+    fences is not read as prose. ``--text`` checks one string instead of files,
+    for a quick look at a single sentence.
     """
     from . import lint as lint_engine
 
     scope, project_root, config, ruleset = _prepare(is_global=is_global)
-    targets_to_check = list(paths) or [Path.cwd()]
-    exclude = install.lint_excludes(config, scope=scope, project_root=project_root)
 
-    missing = [p for p in targets_to_check if not p.exists()]
-    if missing:
-        raise ConfigError("No such file or directory: " + ", ".join(str(p) for p in missing) + ".")
+    if register and register not in REGISTERS:
+        raise ConfigError(f"--register must be one of: {', '.join(REGISTERS)}.")
 
-    if register:
-        if register not in REGISTERS:
-            raise ConfigError(f"--register must be one of: {', '.join(REGISTERS)}.")
-        # Forcing a register still has to walk directories, or naming one
-        # would quietly check nothing at all.
-        files: list[Path] = []
-        for path in targets_to_check:
-            if path.is_dir():
-                files += lint_engine.walk_files(path, exclude, project_root=project_root)
-            else:
-                files.append(path)
-
-        findings = []
-        for path in files:
-            try:
-                text = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            findings += lint_engine.lint_text(text, ruleset, register=register, path=path)
+    if text:
+        if paths:
+            raise ConfigError("Give --text or files to check, not both.")
+        findings = lint_engine.lint_text(text, ruleset, register=register or "prose")
     else:
-        findings = lint_engine.lint_paths(
-            targets_to_check, ruleset, exclude=exclude, project_root=project_root
-        )
+        targets_to_check = list(paths) or [Path.cwd()]
+        exclude = install.lint_excludes(config, scope=scope, project_root=project_root)
+
+        missing = [p for p in targets_to_check if not p.exists()]
+        if missing:
+            raise ConfigError(
+                "No such file or directory: " + ", ".join(str(p) for p in missing) + "."
+            )
+
+        if register:
+            # Forcing a register still has to walk directories, or naming one
+            # would quietly check nothing at all.
+            files: list[Path] = []
+            for path in targets_to_check:
+                if path.is_dir():
+                    files += lint_engine.walk_files(path, exclude, project_root=project_root)
+                else:
+                    files.append(path)
+
+            findings = []
+            for path in files:
+                try:
+                    contents = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                findings += lint_engine.lint_text(contents, ruleset, register=register, path=path)
+        else:
+            findings = lint_engine.lint_paths(
+                targets_to_check, ruleset, exclude=exclude, project_root=project_root
+            )
 
     if output == "json":
         import json
@@ -511,6 +524,144 @@ def _print_findings(findings: list, config: Config) -> None:
         f"\n[bold]{len(findings)}[/bold] findings "
         f"([red]{bans} banned[/red], [yellow]{flags} flagged[/yellow])"
     )
+
+
+@app.command
+def rewrite(
+    text: Annotated[
+        str, Parameter(help="The text to rewrite. Leave it out to read standard input.")
+    ] = "",
+    *,
+    pack: PackOption = (),
+    style: StyleOption = "",
+    severity: SeverityOption = (),
+    avoid: AvoidOption = (),
+    configure: Annotated[
+        bool, Parameter(help="Choose the rewrite backend again and save the choice.")
+    ] = False,
+    is_global: GlobalFlag = False,
+) -> None:
+    """Rewrite text so it follows the rules, using a model.
+
+    The first run asks which backend does the rewriting and saves the answer to
+    your global config; ``--configure`` asks again. Only the rewritten text goes
+    to standard output, so the command works in a pipe:
+    ``pbpaste | debabble rewrite | pbcopy``.
+    """
+    from contextlib import nullcontext
+
+    from . import rewrite as rewrite_engine
+
+    _, project_root = _scope_and_root(is_global)
+    settings = rewrite_engine.load_settings(project_root)
+
+    if configure or not settings.backend:
+        settings = _configure_rewrite(settings)
+        if not text:
+            return
+
+    if not text or text == "-":
+        if sys.stdin.isatty():
+            raise ConfigError(
+                "Give the text as an argument, or pipe it in: "
+                'debabble rewrite "the text", or cat draft.md | debabble rewrite.'
+            )
+        text = sys.stdin.read()
+    if not text.strip():
+        raise ConfigError("There is no text to rewrite.")
+
+    _, _, config, ruleset = _prepare(
+        is_global=is_global, packs=pack, style=style, severity=severity, avoid=avoid
+    )
+
+    # The spinner goes to stderr so a redirected stdout stays pure text.
+    waiting = (
+        err_console.status(f"rewriting via {settings.backend}")
+        if err_console.is_terminal
+        else nullcontext()
+    )
+    with waiting:
+        result = rewrite_engine.run(settings, ruleset, style=config.effective_style, text=text)
+
+    sys.stdout.write(result if result.endswith("\n") else result + "\n")
+    _warn_if_still_babbling(result, ruleset)
+
+
+def _warn_if_still_babbling(text: str, ruleset) -> None:
+    """Check the model's output with the linter. Models do not always comply."""
+    from . import lint as lint_engine
+
+    banned = sorted(
+        {
+            finding.matched
+            for finding in lint_engine.lint_text(text, ruleset, register="prose")
+            if finding.severity is Severity.BAN
+        }
+    )
+    if banned:
+        err_console.print(
+            "[yellow]note[/yellow] the rewrite still matches banned rules: "
+            + escape(", ".join(banned))
+        )
+
+
+def _ask(question: str, *, default: str = "") -> str:
+    """Prompt on stderr until the answer is non-empty."""
+    from rich.prompt import Prompt
+
+    while True:
+        if default:
+            answer = Prompt.ask(question, default=default, console=err_console)
+        else:
+            answer = Prompt.ask(question, console=err_console)
+        if answer and answer.strip():
+            return answer.strip()
+
+
+def _configure_rewrite(current):
+    """Ask which backend rewrites text, and save the answer to the global config."""
+    from rich.prompt import Prompt
+
+    from . import rewrite as rewrite_engine
+
+    if not (sys.stdin.isatty() and sys.stderr.isatty()):
+        raise ConfigError(
+            "Choosing a rewrite backend needs a terminal to ask in. Run "
+            "`debabble rewrite --configure` in one, or write a [rewrite] section "
+            f"into {paths.display(paths.global_config_file())}."
+        )
+
+    err_console.print("Backends for `debabble rewrite`:")
+    err_console.print("  [bold]claude-cli[/bold]  the claude CLI; nothing else to set up")
+    err_console.print(
+        "  [bold]openai[/bold]      an OpenAI-compatible API, keyed by an env variable"
+    )
+    err_console.print(
+        "  [bold]command[/bold]     your own command: prompt on stdin, text on stdout"
+    )
+    backend = Prompt.ask(
+        "Backend",
+        choices=list(rewrite_engine.BACKENDS),
+        default=current.backend or "claude-cli",
+        console=err_console,
+    )
+
+    settings = rewrite_engine.RewriteSettings(backend=backend)
+    if backend == "openai":
+        base_url = _ask("Base URL", default=current.base_url)
+        model = _ask("Model", default=current.model)
+        api_key_env = _ask("Environment variable holding the API key", default=current.api_key_env)
+        err_console.print("[dim]The variable's name is saved; the key itself never is.[/dim]")
+        settings = rewrite_engine.RewriteSettings(
+            backend=backend, base_url=base_url, model=model, api_key_env=api_key_env
+        )
+    elif backend == "command":
+        command = _ask("Command to run (gets the prompt on stdin)", default=current.command)
+        settings = rewrite_engine.RewriteSettings(backend=backend, command=command)
+
+    saved_to = rewrite_engine.save_settings(settings)
+    err_console.print(f"Saved to {paths.display(saved_to)}. Change it any time with --configure.")
+    return settings
 
 
 @app.command
@@ -823,6 +974,11 @@ allow = []
 # [[rules]]
 # id = "vocabulary.hype-verbs"
 # severity = "flag"
+
+# Which model `debabble rewrite` uses. `debabble rewrite --configure` writes
+# this for you, normally into your global config rather than a project's.
+# [rewrite]
+# backend = "claude-cli"
 """
 
 
@@ -848,7 +1004,8 @@ def main() -> None:
         # and Rich would read those as markup and print nothing in their place.
         err_console.print("[red]error[/red]", escape(str(err)))
         raise SystemExit(1) from err
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
+        # EOFError is ctrl-D at a prompt, which means the same thing here.
         raise SystemExit(130) from None
 
 

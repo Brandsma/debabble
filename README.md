@@ -167,7 +167,8 @@ debabble lint .
 It reports a rule, a file, a line, and the text that matched, and exits non-zero
 when a banned rule matched, so it works as a CI gate. Flagged rules are reported
 but do not fail the run unless you pass `--strict`. `--format json` gives
-machine-readable output.
+machine-readable output, and `--text "the sentence"` checks a string without a
+file.
 
 The linter is regex and counting, not a model. Rules it cannot judge honestly,
 such as sentence rhythm or whether a docstring was worth writing, are marked as
@@ -185,6 +186,50 @@ exclude = ["vendor/*", "CHANGELOG.md"]
 
 Files debabble itself wrote are skipped automatically; they contain the rules,
 banned words and all.
+
+## Rewriting text
+
+The linter points at problems; a model fixes them. To run a sentence or a whole
+file through the rules:
+
+```bash
+debabble rewrite "It is not this, but really that"
+cat draft.md | debabble rewrite > clean.md
+```
+
+Only the rewritten text goes to standard output, so the command works in a
+pipe. On macOS, `pbpaste | debabble rewrite | pbcopy` cleans the clipboard in
+place.
+
+Rewriting needs a model, and the first run asks which one:
+
+- `claude-cli` runs `claude -p` with the rules as the prompt. If you have
+  Claude Code, there is nothing else to set up.
+- `openai` calls any OpenAI-compatible API: one HTTP request, no added
+  dependency. You name the base URL, the model, and the environment variable
+  holding the key; the key itself is never written to disk.
+- `command` runs a command of your own. It gets the full prompt on standard
+  input and is expected to print the rewritten text, so any model CLI that
+  reads stdin plugs in.
+
+The answer is saved under `[rewrite]` in your global config. Change it with
+`debabble rewrite --configure`, or edit the file directly:
+
+```toml
+[rewrite]
+backend = "openai"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+api_key_env = "OPENAI_API_KEY"
+```
+
+The backend is a machine-level choice, so it is read from your global config
+even when a project has its own `debabble.toml`. A project can still pin one by
+carrying its own `[rewrite]` section, which wins.
+
+Your configured packs, severities, and avoid list shape the prompt, and the
+output is checked with the linter afterwards: when a banned rule still matches,
+a note goes to standard error.
 
 ## As an MCP server
 
