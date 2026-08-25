@@ -23,13 +23,15 @@ from . import paths
 from .errors import ConfigError
 from .models import Pack, Rule, RuleSet, Severity
 from .packs import build_rule, did_you_mean, load_all_packs
-from .rewrite import parse_rewrite_table
 
 STYLES = ("minimal", "compact", "full")
 DEFAULT_STYLE = "compact"
 DEFAULT_TARGETS = ("claude-code",)
 
-_CONFIG_SECTIONS = {"profile", "severity", "custom", "rules", "lint", "rewrite"}
+_CONFIG_SECTIONS = {"profile", "severity", "custom", "rules", "lint"}
+# [rewrite] configured the removed rewrite command. It is read as nothing rather
+# than as a typo, so a config written before the removal still loads.
+_RETIRED_SECTIONS = {"rewrite"}
 _LINT_KEYS = {"exclude"}
 _PROFILE_KEYS = {"packs", "targets", "style"}
 _CUSTOM_KEYS = {"avoid", "allow"}
@@ -92,7 +94,7 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
     """Turn parsed TOML into a :class:`Config`, with errors that name the file."""
     where = str(source) if source else "config"
 
-    unknown = set(data) - _CONFIG_SECTIONS
+    unknown = set(data) - _CONFIG_SECTIONS - _RETIRED_SECTIONS
     if unknown:
         raise ConfigError(
             f"{where}: unknown section [{min(unknown)}]. "
@@ -162,11 +164,6 @@ def parse_config(data: dict[str, Any], *, source: Path | None = None) -> Config:
             f"Valid keys are: {', '.join(sorted(_LINT_KEYS))}."
         )
     exclude = _as_str_tuple(lint_section.get("exclude", []), where=f"{where}: lint.exclude")
-
-    # [rewrite] is checked here so a typo in it fails at load time like any
-    # other section. Its values are read by debabble.rewrite rather than
-    # carried on Config: the backend is machine state, not part of the profile.
-    parse_rewrite_table(data.get("rewrite", {}), where=where)
 
     return Config(
         packs=packs,

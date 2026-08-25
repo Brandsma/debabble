@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .errors import ManifestError
 from .managed_block import normalise_newlines
 
 MANIFEST_VERSION = 1
@@ -37,10 +38,28 @@ class InstalledFile:
     hash: str
 
     def resolve(self, root: Path | None) -> Path:
+        """The file this record names, refusing to point outside ``root``.
+
+        A project manifest is committed, so it arrives with a repository and is
+        only as trustworthy as the repository is. Every path in it reaches the
+        filesystem through here, and ``remove`` deletes what it returns, so an
+        entry naming ``../../.ssh/authorized_keys`` has to be stopped here or
+        cloning a repository is enough to lose the file.
+
+        A global manifest has no root and keeps absolute paths: it is written by
+        this machine, for this machine, and never travels.
+        """
         path = Path(self.path)
-        if path.is_absolute() or root is None:
+        if root is None:
             return path
-        return root / path
+        if path.is_absolute():
+            raise ManifestError(
+                f"{self.path}: a project manifest may only name paths inside the project."
+            )
+        resolved = (root / path).resolve()
+        if not resolved.is_relative_to(root.resolve()):
+            raise ManifestError(f"{self.path}: this manifest entry points outside the project.")
+        return resolved
 
 
 @dataclass(frozen=True, slots=True)
