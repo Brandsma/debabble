@@ -328,8 +328,11 @@ def _apply_one(
         if not created:
             _ensure_backup(path, scope, project_root, dry_run=dry_run)
         if not dry_run:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(new_text, encoding="utf-8", newline="")
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(new_text, encoding="utf-8", newline="")
+            except OSError as err:
+                raise TargetError(f"{target.id}: could not write {path} — {err.strerror}.") from err
 
     record = InstalledFile(
         target=target.id,

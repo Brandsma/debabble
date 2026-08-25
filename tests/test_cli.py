@@ -102,6 +102,28 @@ def test_bare_invocation_is_useful(project):
     assert "rules active" in result.stdout
 
 
+def test_help_lists_the_commands(project):
+    """`help` is the word people type when they do not know the flag."""
+    result = run("help", cwd=project)
+
+    for command in ("apply", "status", "remove", "lint"):
+        assert command in result.stdout
+
+
+def test_help_on_one_command_describes_it(project):
+    result = run("help", "apply", cwd=project)
+
+    assert "--dry-run" in result.stdout
+
+
+def test_help_on_something_that_is_not_a_command_says_so(project):
+    result = run("help", "nonsense", cwd=project, expect_ok=False)
+    output = result.stdout + result.stderr
+
+    assert result.returncode != 0
+    assert "no 'nonsense' command" in output
+
+
 # ---------------------------------------------------------------------------
 # Customisation from the command line
 # ---------------------------------------------------------------------------

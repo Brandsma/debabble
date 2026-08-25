@@ -11,6 +11,7 @@ import pytest
 from debabble import install, managed_block
 from debabble import manifest as manifest_mod
 from debabble.config import Config, resolve_ruleset
+from debabble.errors import TargetError
 
 USER_TEXT = """# Team notes
 
@@ -58,6 +59,21 @@ def test_apply_creates_an_owned_file(ruleset, project):
     assert path.is_file()
     assert "Writing rules" in path.read_text(encoding="utf-8")
     assert [c.action for c in outcome.changes] == [install.CREATE]
+
+
+def test_a_directory_that_cannot_be_written_reports_the_path(ruleset, project, monkeypatch):
+    """A traceback tells the reader nothing about which file could not be written."""
+
+    def refuse(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr("pathlib.Path.mkdir", refuse)
+
+    with pytest.raises(TargetError) as err:
+        _apply(ruleset, project, ("claude-code",))
+
+    assert "claude-code" in str(err.value)
+    assert "debabble.md" in str(err.value)
 
 
 def test_applying_twice_changes_nothing(ruleset, project):

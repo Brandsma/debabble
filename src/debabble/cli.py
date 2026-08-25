@@ -878,6 +878,25 @@ def init(*, is_global: GlobalFlag = False, force: bool = False) -> None:
     console.print("[dim]Edit it, then run `debabble apply`.[/dim]")
 
 
+@app.command(name="help")
+def help_(
+    command: Annotated[
+        tuple[str, ...],
+        Parameter(help="A command to describe. Without one, lists every command."),
+    ] = (),
+) -> None:
+    """Show the help for debabble, or for one command."""
+    if command:
+        known = {name for name in app if not name.startswith("-")}
+        if command[0] not in known:
+            # help_print would fall back to the top-level help and leave the
+            # reader thinking they had typed a real command name.
+            raise ConfigError(
+                f"There is no '{command[0]}' command. The commands are: {', '.join(sorted(known))}."
+            )
+    app.help_print(list(command))
+
+
 @app.default
 def overview(
     unknown: Annotated[
