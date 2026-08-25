@@ -203,14 +203,24 @@ def load_config(project_root: Path | None, *, scope: str = "project") -> Config:
     config of its own falls back to the global one, which is what makes
     ``debabble apply --global`` useful as a personal default.
     """
-    global_config = load_config_file(paths.global_config_file())
     if scope == "global" or project_root is None:
-        return global_config
+        return load_config_file(paths.global_config_file())
 
     project_file = paths.project_config_file(project_root)
     if project_file.is_file():
+        # Read only this file: a project with its own config must not be able to
+        # fail because of something in a file outside the repository.
         return load_config_file(project_file)
-    return global_config
+
+    try:
+        return load_config_file(paths.global_config_file())
+    except ConfigError as err:
+        raise ConfigError(
+            f"{err}\n"
+            f"That is your user-wide config. It applies here because "
+            f"{project_root} has no debabble.toml of its own. Fix that file, or run "
+            f"`debabble init` to give this project a config the global one cannot break."
+        ) from err
 
 
 # Turning configuration into the rules that are actually in effect

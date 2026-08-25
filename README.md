@@ -53,6 +53,9 @@ debabble remove
 Every command that writes accepts `--dry-run`, which shows the changes and
 writes nothing.
 
+`debabble help` lists the commands, and `debabble help apply` explains one of
+them.
+
 ## Choosing tools
 
 ```bash

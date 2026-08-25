@@ -270,6 +270,39 @@ def test_a_project_without_a_config_falls_back_to_the_global_one(tmp_path, monke
     assert config.packs == ("corporate-speak",)
 
 
+def test_a_broken_global_config_cannot_break_a_project_that_has_its_own(tmp_path, monkeypatch):
+    global_dir = tmp_path / "global"
+    global_dir.mkdir()
+    (global_dir / "debabble.toml").write_text("[nonsense]\nx = 1\n", encoding="utf-8")
+    monkeypatch.setattr("debabble.paths.user_config_dir", lambda: global_dir)
+
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "debabble.toml").write_text('[profile]\npacks = ["vocabulary"]\n', encoding="utf-8")
+
+    config = load_config(project, scope="project")
+    assert config.packs == ("vocabulary",)
+
+
+def test_a_broken_global_config_says_why_it_applies_to_this_project(tmp_path, monkeypatch):
+    """The file named in the error is one the reader never put in this repository."""
+    global_dir = tmp_path / "global"
+    global_dir.mkdir()
+    (global_dir / "debabble.toml").write_text("[nonsense]\nx = 1\n", encoding="utf-8")
+    monkeypatch.setattr("debabble.paths.user_config_dir", lambda: global_dir)
+
+    project = tmp_path / "proj"
+    project.mkdir()
+
+    with pytest.raises(ConfigError) as err:
+        load_config(project, scope="project")
+
+    message = str(err.value)
+    assert "user-wide" in message
+    assert "debabble init" in message
+    assert str(project) in message
+
+
 def test_custom_packs_are_loaded_from_the_project(tmp_path, monkeypatch):
     project = tmp_path / "proj"
     packs_dir = project / ".debabble" / "packs"
