@@ -233,6 +233,20 @@ def test_an_opt_in_pack_can_be_asked_for():
     assert [p.id for p in ruleset.packs] == ["corporate-speak"]
 
 
+def test_a_config_written_before_the_rewrite_command_was_removed_still_loads():
+    """[rewrite] is dead configuration, not a typo, so it must not stop apply."""
+    config = parse(
+        """
+        [profile]
+        packs = ["vocabulary"]
+
+        [rewrite]
+        backend = "claude-cli"
+        """
+    )
+    assert config.packs == ("vocabulary",)
+
+
 def test_an_unknown_pack_lists_the_real_ones():
     with pytest.raises(ConfigError, match="Available packs"):
         resolve_ruleset(Config(packs=("nonsense",)))

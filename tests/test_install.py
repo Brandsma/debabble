@@ -96,6 +96,70 @@ def test_remove_deletes_a_file_debabble_created(ruleset, project):
     assert not path.exists()
 
 
+def _write_manifest_naming(project, path_value: str) -> None:
+    """A committed manifest pointing at one file, the way a cloned repo carries one."""
+    state = project / ".debabble"
+    state.mkdir(parents=True, exist_ok=True)
+    (state / "manifest.toml").write_text(
+        "version = 1\n"
+        'scope = "project"\n'
+        'targets = ["claude-code"]\n\n'
+        "[[files]]\n"
+        'target = "claude-code"\n'
+        f'path = "{path_value}"\n'
+        'strategy = "own"\n'
+        "created = true\n"
+        'hash = "0000000000000000"\n',
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.parametrize("escape", ["../outside.txt", "nested/../../outside.txt"])
+def test_remove_refuses_a_manifest_path_that_escapes_the_project(project, escape):
+    """A manifest travels with a repository, so its paths are as trusted as the repo."""
+    outside = project.parent / "outside.txt"
+    outside.write_text("someone else's file\n", encoding="utf-8")
+    _write_manifest_naming(project, escape)
+
+    outcome = install.remove(scope="project", project_root=project)
+
+    assert outside.is_file(), "remove followed a path out of the project"
+    assert [c.action for c in outcome.changes] == [install.SKIP]
+    assert "outside the project" in outcome.changes[0].detail
+
+
+def test_remove_refuses_an_absolute_manifest_path(project, tmp_path):
+    outside = tmp_path / "absolute-victim.txt"
+    outside.write_text("someone else's file\n", encoding="utf-8")
+    _write_manifest_naming(project, outside.as_posix())
+
+    outcome = install.remove(scope="project", project_root=project)
+
+    assert outside.is_file(), "remove followed an absolute path out of the project"
+    assert [c.action for c in outcome.changes] == [install.SKIP]
+
+
+def test_status_refuses_the_same_paths(ruleset, project):
+    """status reads through the same call, so it must not stat outside the project."""
+    _write_manifest_naming(project, "../outside.txt")
+
+    _manifest, entries = install.status(
+        ruleset, Config(targets=("claude-code",)), scope="project", project_root=project
+    )
+
+    assert [e.state for e in entries] == [install.SKIP]
+
+
+def test_a_manifest_path_inside_the_project_still_works(ruleset, project):
+    _apply(ruleset, project, ("claude-code",))
+    path = project / ".claude" / "rules" / "debabble.md"
+
+    outcome = install.remove(scope="project", project_root=project)
+
+    assert not path.exists()
+    assert [c.action for c in outcome.changes] == [install.DELETE]
+
+
 def test_frontmatter_is_written_for_targets_that_need_it(ruleset, project):
     _apply(ruleset, project, ("cursor",))
     text = (project / ".cursor" / "rules" / "debabble.mdc").read_text(encoding="utf-8")

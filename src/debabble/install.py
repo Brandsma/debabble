@@ -23,7 +23,7 @@ from pathlib import Path
 from . import managed_block, paths
 from . import manifest as manifest_mod
 from .config import Config
-from .errors import BlockError, TargetError
+from .errors import BlockError, ManifestError, TargetError
 from .manifest import InstalledFile, Manifest, content_hash
 from .models import RuleSet
 from .render import render, render_rewrite_command
@@ -405,7 +405,13 @@ def _remove_target(
     changes: list[Change] = []
 
     for record in records:
-        path = record.resolve(root)
+        try:
+            path = record.resolve(root)
+        except ManifestError as err:
+            # Refuse this entry and carry on, the way an ambiguous block does:
+            # the rest of the manifest is still worth acting on.
+            changes.append(Change(target_id, Path(record.path), SKIP, str(err)))
+            continue
         existing = _read(path)
 
         if existing is None:
@@ -468,7 +474,11 @@ def status(
 
     entries: list[StatusEntry] = []
     for record in current.files:
-        path = record.resolve(root)
+        try:
+            path = record.resolve(root)
+        except ManifestError as err:
+            entries.append(StatusEntry(record.target, Path(record.path), SKIP, str(err)))
+            continue
         existing = _read(path)
         if existing is None:
             entries.append(StatusEntry(record.target, path, MISSING, "file is gone"))

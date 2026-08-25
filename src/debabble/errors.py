@@ -25,3 +25,7 @@ class TargetError(DebabbleError):
 
 class BlockError(DebabbleError):
     """A managed block in a file is ambiguous, so debabble will not touch it."""
+
+
+class ManifestError(DebabbleError):
+    """A manifest entry points somewhere debabble will not follow."""
