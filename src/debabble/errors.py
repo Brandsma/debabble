@@ -29,3 +29,7 @@ class BlockError(DebabbleError):
 
 class ManifestError(DebabbleError):
     """A manifest entry points somewhere debabble will not follow."""
+
+
+class UpdateError(DebabbleError):
+    """Updating debabble itself did not work, or cannot be done from here."""
