@@ -50,6 +50,18 @@ To take it back out:
 debabble remove
 ```
 
+To move to the current release:
+
+```bash
+debabble update
+```
+
+That runs the upgrade command for the way debabble is installed here: `uv tool
+upgrade`, `pipx upgrade`, or pip. A git checkout is left alone, with a note
+saying so. `debabble update --check` asks PyPI what the latest release is and
+installs nothing. A release can change the rules themselves, so run `debabble
+apply` afterwards to write the new ones into your tools.
+
 Every command that writes accepts `--dry-run`, which shows the changes and
 writes nothing.
 

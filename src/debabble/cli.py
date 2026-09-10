@@ -15,9 +15,9 @@ from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
-from . import __version__, install, paths
+from . import __version__, install, paths, update
 from .config import STYLES, Config, known_ids, load_config, resolve_ruleset
-from .errors import ConfigError, DebabbleError
+from .errors import ConfigError, DebabbleError, UpdateError
 from .models import REGISTERS, Severity
 from .packs import load_all_packs, rule_to_toml
 from .render import render_body, render_rewrite_command
@@ -738,6 +738,50 @@ def init(*, is_global: GlobalFlag = False, force: bool = False) -> None:
     path.write_text(_starter_config(), encoding="utf-8")
     console.print(f"Wrote {paths.display(path, relative_to=project_root)}")
     console.print("[dim]Edit it, then run `debabble apply`.[/dim]")
+
+
+@app.command(name="update")
+def update_cmd(
+    *,
+    check: Annotated[
+        bool, Parameter(help="Say what the latest release is and install nothing.")
+    ] = False,
+    dry_run: DryRunFlag = False,
+) -> None:
+    """Update debabble itself to the current release.
+
+    The command run matches how debabble was installed: `uv tool upgrade`,
+    `pipx upgrade`, or pip. A checkout is left alone, with a note about what to
+    run there instead. Which version you end up on is your package manager's
+    decision; --check asks PyPI what it would be, and is the only part of this
+    that needs the network.
+    """
+    installation = update.detect()
+    console.print(f"debabble [bold]{__version__}[/bold], installed with {installation.kind}")
+    console.print(f"[dim]{paths.display(installation.root)}[/dim]")
+
+    if check:
+        latest = update.latest_release()
+        if update.is_newer(latest, __version__):
+            console.print(f"\n[yellow]{latest} is out.[/yellow] Run [bold]debabble update[/bold].")
+        else:
+            console.print(f"\n{latest} is the latest on PyPI, so you are current.")
+        return
+
+    if not installation.command:
+        raise UpdateError(installation.reason)
+
+    typed = update.shell_command(installation)
+    if dry_run:
+        console.print(f"\nWould run [bold]{typed}[/bold]")
+        return
+
+    console.print(f"\nRunning [bold]{typed}[/bold]\n")
+    update.run_upgrade(installation)
+    console.print(
+        "\nA release can change the rules themselves. Run [bold]debabble apply[/bold] "
+        "to write the new ones into your tools."
+    )
 
 
 @app.command(name="help")

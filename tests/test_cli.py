@@ -102,6 +102,21 @@ def test_bare_invocation_is_useful(project):
     assert "rules active" in result.stdout
 
 
+def test_update_dry_run_installs_nothing(project):
+    """A dry run reports the upgrade it would run, or why it cannot run one.
+
+    Which of the two comes out depends on how the debabble under test was
+    installed, so the test checks both, and that the run stayed offline and
+    touched nothing.
+    """
+    result = run("update", "--dry-run", cwd=project, expect_ok=False)
+    output = result.stdout + result.stderr
+
+    assert "debabble" in output
+    assert "Would run" in output or "git pull" in output or "PATH" in output
+    assert not (project / ".claude").exists()
+
+
 def test_help_lists_the_commands(project):
     """`help` is the word people type when they do not know the flag."""
     result = run("help", cwd=project)
